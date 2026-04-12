@@ -1,10 +1,9 @@
 <?php
-
 class Database {
     private string $host = "localhost";
     private string $username = "root";
     private string $password = "";
-    private string $database = "db_students";
+    private string $database = "azbuy_db";  // CHANGE THIS to azbuy_db
 
     public function connect(): mysqli {
         $conn = new mysqli(
@@ -21,3 +20,4 @@ class Database {
         return $conn;
     }
 }
+?>

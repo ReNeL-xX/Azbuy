@@ -1,72 +1,126 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/../config/Database.php';
+
 $action = $_GET['action'] ?? 'home';
 
-// Define the base path - NOW POINTS TO APP FOLDER
+// Define the base path
 define('BASE_PATH', dirname(__DIR__) . '/app');
 
-// Handle login form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($action === 'login-process') {
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-        
-        // Simple demo login
-        if ($username === 'demo' && $password === 'demo123') {
-            $_SESSION['user_id'] = 1;
-            $_SESSION['username'] = 'demo';
-            $_SESSION['success'] = 'Login successful! Welcome back!';
-            header('Location: index.php?action=dashboard');
-            exit;
-        } else {
-            $_SESSION['error'] = 'Invalid username or password. Try: demo / demo123';
-            header('Location: index.php?action=login');
-            exit;
-        }
-    }
-    
-    if ($action === 'register-process') {
-        $username = $_POST['username'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $password = $_POST['password'] ?? '';
-        
-        if (!empty($username) && !empty($email) && !empty($password)) {
-            $_SESSION['success'] = 'Registration successful! Please login.';
-            header('Location: index.php?action=login');
-            exit;
-        } else {
-            $_SESSION['error'] = 'Please fill in all required fields.';
-            header('Location: index.php?action=register');
-            exit;
-        }
-    }
-}
+// Include Controllers (with path verification)
+$controllers_path = BASE_PATH . '/controllers/';
 
-// Handle logout
-if ($action === 'logout') {
-    session_destroy();
-    header('Location: index.php?action=home');
-    exit;
-}
+$auth_file = $controllers_path . 'AuthController.php';
+$user_file = $controllers_path . 'UserController.php';
+$auction_file = $controllers_path . 'AuctionController.php';
 
-// Map actions to view files - NOW USING APP FOLDER
-$views = [
-    'home' => BASE_PATH . '/views/pages/home.php',
-    'about' => BASE_PATH . '/views/pages/about.php',
-    'login' => BASE_PATH . '/views/auth/login.php',
-    'register' => BASE_PATH . '/views/auth/register.php',
-    'dashboard' => BASE_PATH . '/views/auction/dashboard.php',
-    'create-auction' => BASE_PATH . '/views/auction/create_auction.php',
-    'view-auction' => BASE_PATH . '/views/auction/view_auction.php',
-    'my-auctions' => BASE_PATH . '/views/auction/my_auctions.php',
-    'my-bids' => BASE_PATH . '/views/auction/my_bids.php',
-    'settings' => BASE_PATH . '/views/user/settings.php',
-];
-
-if (isset($views[$action]) && file_exists($views[$action])) {
-    require_once $views[$action];
+// Check if files exist before including
+if (file_exists($auth_file)) {
+    require_once $auth_file;
 } else {
-    require_once BASE_PATH . '/views/pages/home.php';
+    die('AuthController.php not found at: ' . $auth_file);
+}
+
+if (file_exists($user_file)) {
+    require_once $user_file;
+} else {
+    die('UserController.php not found at: ' . $user_file);
+}
+
+if (file_exists($auction_file)) {
+    require_once $auction_file;
+} else {
+    die('AuctionController.php not found at: ' . $auction_file);
+}
+
+// Create controller instances
+$authController = new AuthController();
+$userController = new UserController();
+$auctionController = new AuctionController();
+
+switch ($action) {
+    // Public routes
+    case 'home':
+        require_once BASE_PATH . '/views/pages/home.php';
+        break;
+    
+    case 'about':
+        require_once BASE_PATH . '/views/pages/about.php';
+        break;
+    
+    case 'login':
+        $authController->showLogin();
+        break;
+    
+    case 'login-process':
+        $authController->login();
+        break;
+    
+    case 'register':
+        $authController->showRegister();
+        break;
+    
+    case 'register-process':
+        $authController->register();
+        break;
+    
+    case 'logout':
+        $authController->logout();
+        break;
+    
+    // Auction routes
+    case 'dashboard':
+        $auctionController->dashboard();
+        break;
+    
+    case 'create-auction':
+        $auctionController->showCreateAuction();
+        break;
+    
+    case 'create-auction-process':
+        $auctionController->createAuction();
+        break;
+    
+    case 'view-auction':
+        $auctionController->viewAuction();
+        break;
+    
+    case 'place-bid':
+        $auctionController->placeBid();
+        break;
+    
+    case 'my-auctions':
+        $auctionController->myAuctions();
+        break;
+    
+    case 'delete-auction':
+        $auctionController->deleteAuction();
+        break;
+    
+    case 'my-bids':
+        $auctionController->myBids();
+        break;
+    
+    case 'pay-auction':
+        $auctionController->payForAuction();
+        break;
+    
+    // User routes
+    case 'settings':
+        $userController->showSettings();
+        break;
+    
+    case 'update-profile':
+        $userController->updateProfile();
+        break;
+    
+    case 'update-password':
+        $userController->updatePassword();
+        break;
+    
+    default:
+        require_once BASE_PATH . '/views/pages/home.php';
+        break;
 }
 ?>

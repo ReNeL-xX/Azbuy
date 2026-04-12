@@ -116,17 +116,6 @@ function initSettingsTabs() {
     });
 }
 
-// Place bid function
-function placeBid() {
-    const amount = document.getElementById('bid_amount')?.value;
-    if (!amount || amount <= 0) {
-        showNotification('Please enter a valid bid amount', 'error');
-        return;
-    }
-    showNotification(`Bid of $${amount} placed successfully!`, 'success');
-    setTimeout(() => location.reload(), 1500);
-}
-
 // Payment modal
 function openPaymentModal() {
     const modal = document.getElementById('paymentModal');

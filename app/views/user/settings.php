@@ -6,9 +6,18 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Get user data from database
+require_once dirname(__DIR__) . '/../models/User.php';
+require_once dirname(__DIR__) . '/../../config/Database.php';
+
+$database = new Database();
+$conn = $database->connect();
+$userModel = new User($conn);
+$user = $userModel->getUserById($_SESSION['user_id']);
+$conn->close();
+
 ob_start();
 ?>
-
 
 <div class="settings-container">
     <h1><i class="fas fa-cog"></i> Account Settings</h1>
@@ -23,10 +32,13 @@ ob_start();
                     </button>
                     <input type="file" id="avatarUpload" style="display: none;" accept="image/*">
                 </div>
-                <h3 id="displayFullName">John Doe</h3>
-                <p id="displayUsername">@johndoe</p>
+                <h3 id="displayFullName"><?php echo htmlspecialchars($user['full_name'] ?? $user['username']); ?></h3>
+                <p id="displayUsername">@<?php echo htmlspecialchars($user['username']); ?></p>
                 <div class="member-since">
-                    <i class="fas fa-calendar"></i> Member since December 2024
+                    <i class="fas fa-calendar"></i> Member since <?php echo date('F Y', strtotime($user['created_at'])); ?>
+                </div>
+                <div class="wallet-info" style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,215,0,0.1); border-radius: 8px;">
+                    <i class="fas fa-wallet"></i> Balance: $<?php echo number_format($user['balance'] ?? 0, 2); ?>
                 </div>
             </div>
             
@@ -44,42 +56,39 @@ ob_start();
             <div id="profile" class="settings-tab active">
                 <h2><i class="fas fa-user-edit"></i> Profile Information</h2>
                 
-                <form id="profileForm" onsubmit="saveProfile(event)">
+                <form action="index.php?action=update-profile" method="POST">
                     <div class="form-row">
                         <div class="form-group">
                             <label><i class="fas fa-user"></i> Full Name</label>
-                            <input type="text" id="fullName" name="full_name" value="John Doe" placeholder="Your full name">
+                            <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name'] ?? ''); ?>" placeholder="Your full name">
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-at"></i> Username</label>
-                            <input type="text" id="username" name="username" value="johndoe" placeholder="Username">
+                            <input type="text" value="<?php echo htmlspecialchars($user['username']); ?>" disabled>
+                            <small>Username cannot be changed</small>
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label><i class="fas fa-envelope"></i> Email Address</label>
-                            <input type="email" id="email" name="email" value="john.doe@example.com" placeholder="Email address">
+                            <input type="email" value="<?php echo htmlspecialchars($user['email']); ?>" disabled>
+                            <small>Email cannot be changed</small>
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-phone"></i> Phone Number</label>
-                            <input type="tel" id="phone" name="phone" value="+1 (555) 123-4567" placeholder="Phone number">
+                            <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" placeholder="Phone number">
                         </div>
                     </div>
                     
                     <div class="form-group">
                         <label><i class="fas fa-map-marker-alt"></i> Address</label>
-                        <textarea id="address" name="address" rows="3" placeholder="Your address">123 Main Street, Apt 4B, New York, NY 10001</textarea>
+                        <textarea name="address" rows="3" placeholder="Your address"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
                     </div>
                     
                     <div class="form-group">
                         <label><i class="fas fa-info-circle"></i> Bio</label>
-                        <textarea id="bio" name="bio" rows="2" placeholder="Tell other bidders about yourself...">Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨</textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-globe"></i> Website (Optional)</label>
-                        <input type="url" id="website" name="website" value="https://johndoe.com" placeholder="Your personal website">
+                        <textarea id="bio" name="bio" rows="2" placeholder="Tell other bidders about yourself..."><?php echo htmlspecialchars($user['bio'] ?? 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨'); ?></textarea>
                     </div>
                     
                     <div class="button-group">
@@ -103,20 +112,20 @@ ob_start();
             <div id="security" class="settings-tab">
                 <h2><i class="fas fa-shield-alt"></i> Security Settings</h2>
                 
-                <form id="securityForm" onsubmit="changePassword(event)">
+                <form action="index.php?action=update-password" method="POST">
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> Current Password</label>
-                        <input type="password" id="currentPassword" placeholder="Enter current password">
+                        <input type="password" name="current_password" required placeholder="Enter current password">
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label><i class="fas fa-key"></i> New Password</label>
-                            <input type="password" id="newPassword" placeholder="Enter new password">
+                            <input type="password" name="new_password" id="newPassword" required placeholder="Enter new password">
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-check-circle"></i> Confirm New Password</label>
-                            <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                            <input type="password" name="confirm_password" id="confirmPassword" required placeholder="Confirm new password">
                         </div>
                     </div>
                     
@@ -163,7 +172,7 @@ ob_start();
                 
                 <div class="wallet-balance" style="text-align: center; padding: 2rem; background: var(--dark-card); border-radius: 20px; margin-bottom: 2rem;">
                     <span>Available Balance</span>
-                    <div class="balance-amount" style="font-size: 2.5rem; font-weight: 800; color: var(--primary-gold);">$1,234.56</div>
+                    <div class="balance-amount" style="font-size: 2.5rem; font-weight: 800; color: var(--primary-gold);">$<?php echo number_format($user['balance'] ?? 0, 2); ?></div>
                     <button class="btn btn-primary" onclick="addFunds()">Add Funds</button>
                 </div>
                 
@@ -186,7 +195,7 @@ ob_start();
                             <i class="fab fa-paypal" style="font-size: 2rem; color: var(--primary-gold);"></i>
                             <div>
                                 <strong>PayPal</strong>
-                                <div><small>john.doe@example.com</small></div>
+                                <div><small><?php echo htmlspecialchars($user['email']); ?></small></div>
                             </div>
                         </div>
                         <button class="btn-sm btn-danger" onclick="removePaymentMethod(this)">Remove</button>
@@ -200,29 +209,11 @@ ob_start();
                     
                     <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color);">
                         <div>
-                            <strong>Payment to seller</strong>
-                            <div><small>Vintage Rolex Watch</small></div>
+                            <strong>Welcome Bonus</strong>
+                            <div><small>Initial deposit</small></div>
                         </div>
-                        <span class="amount negative" style="color: #DC3545;">-$1,250.00</span>
-                        <span class="date" style="color: var(--text-muted);">Dec 10, 2024</span>
-                    </div>
-                    
-                    <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color);">
-                        <div>
-                            <strong>Funds added</strong>
-                            <div><small>Credit Card Deposit</small></div>
-                        </div>
-                        <span class="amount positive" style="color: #28A745;">+$500.00</span>
-                        <span class="date" style="color: var(--text-muted);">Dec 5, 2024</span>
-                    </div>
-                    
-                    <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color);">
-                        <div>
-                            <strong>Won Auction</strong>
-                            <div><small>MacBook Pro M3</small></div>
-                        </div>
-                        <span class="amount negative" style="color: #DC3545;">-$2,450.00</span>
-                        <span class="date" style="color: var(--text-muted);">Nov 28, 2024</span>
+                        <span class="amount positive" style="color: #28A745;">+$100.00</span>
+                        <span class="date" style="color: var(--text-muted);"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></span>
                     </div>
                 </div>
             </div>
@@ -406,41 +397,11 @@ ob_start();
 
 <script>
 // Profile Functions
-function saveProfile(event) {
-    event.preventDefault();
-    
-    const fullName = document.getElementById('fullName').value;
-    const username = document.getElementById('username').value;
-    
-    document.getElementById('displayFullName').innerText = fullName;
-    document.getElementById('displayUsername').innerText = '@' + username;
-    
-    showToast('Profile updated successfully!');
-    
-    localStorage.setItem('userProfile', JSON.stringify({
-        fullName, username,
-        email: document.getElementById('email').value,
-        phone: document.getElementById('phone').value,
-        address: document.getElementById('address').value,
-        bio: document.getElementById('bio').value,
-        website: document.getElementById('website').value
-    }));
-    
-    return false;
-}
-
 function resetProfile() {
-    document.getElementById('fullName').value = 'John Doe';
-    document.getElementById('username').value = 'johndoe';
-    document.getElementById('email').value = 'john.doe@example.com';
-    document.getElementById('phone').value = '+1 (555) 123-4567';
-    document.getElementById('address').value = '123 Main Street, Apt 4B, New York, NY 10001';
+    document.querySelector('input[name="full_name"]').value = '';
+    document.querySelector('input[name="phone"]').value = '';
+    document.querySelector('textarea[name="address"]').value = '';
     document.getElementById('bio').value = 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨';
-    document.getElementById('website').value = 'https://johndoe.com';
-    
-    document.getElementById('displayFullName').innerText = 'John Doe';
-    document.getElementById('displayUsername').innerText = '@johndoe';
-    
     showToast('Profile reset to default');
 }
 
@@ -459,38 +420,6 @@ document.getElementById('avatarUpload')?.addEventListener('change', function(e) 
     }
 });
 
-// Security Functions
-function changePassword(event) {
-    event.preventDefault();
-    
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    if (!currentPassword) {
-        showToast('Please enter current password', 'error');
-        return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-        showToast('New passwords do not match!', 'error');
-        return;
-    }
-    
-    if (newPassword.length < 6) {
-        showToast('Password must be at least 6 characters', 'error');
-        return;
-    }
-    
-    showToast('Password changed successfully!');
-    
-    document.getElementById('currentPassword').value = '';
-    document.getElementById('newPassword').value = '';
-    document.getElementById('confirmPassword').value = '';
-    
-    return false;
-}
-
 // Password strength checker
 document.getElementById('newPassword')?.addEventListener('input', function() {
     const password = this.value;
@@ -504,6 +433,7 @@ document.getElementById('newPassword')?.addEventListener('input', function() {
     if (password.match(/[a-z]/)) strength += 25;
     if (password.match(/[A-Z]/)) strength += 25;
     if (password.match(/[0-9]/)) strength += 25;
+    if (password.match(/[^a-zA-Z0-9]/)) strength += 25;
     
     if (strength <= 25) message = 'Weak';
     else if (strength <= 50) message = 'Fair';
@@ -511,7 +441,7 @@ document.getElementById('newPassword')?.addEventListener('input', function() {
     else message = 'Strong';
     
     strengthText.innerText = message;
-    strengthBar.style.width = strength + '%';
+    strengthBar.style.width = Math.min(strength, 100) + '%';
     
     if (strength <= 25) strengthBar.style.background = '#DC3545';
     else if (strength <= 50) strengthBar.style.background = '#FFC107';
@@ -532,11 +462,7 @@ function revokeSession(button) {
 function addFunds() {
     const amount = prompt('Enter amount to add:', '100');
     if (amount && !isNaN(amount) && amount > 0) {
-        const balanceElement = document.querySelector('.balance-amount');
-        const currentBalance = parseFloat(balanceElement.innerText.replace('$', '').replace(',', ''));
-        const newBalance = currentBalance + parseFloat(amount);
-        balanceElement.innerText = '$' + newBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        showToast(`$${amount} added to your wallet!`);
+        showToast(`$${amount} added to your wallet! (Demo mode)`);
     }
 }
 
@@ -616,24 +542,6 @@ document.querySelectorAll('.settings-nav a').forEach(tab => {
         });
         document.getElementById(tabId).classList.add('active');
     });
-});
-
-// Load saved profile data
-window.addEventListener('DOMContentLoaded', () => {
-    const savedProfile = localStorage.getItem('userProfile');
-    if (savedProfile) {
-        const profile = JSON.parse(savedProfile);
-        document.getElementById('fullName').value = profile.fullName;
-        document.getElementById('username').value = profile.username;
-        document.getElementById('email').value = profile.email;
-        document.getElementById('phone').value = profile.phone;
-        document.getElementById('address').value = profile.address;
-        document.getElementById('bio').value = profile.bio;
-        document.getElementById('website').value = profile.website;
-        
-        document.getElementById('displayFullName').innerText = profile.fullName;
-        document.getElementById('displayUsername').innerText = '@' + profile.username;
-    }
 });
 </script>
 

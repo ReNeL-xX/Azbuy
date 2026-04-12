@@ -1,6 +1,6 @@
 <?php
 // Define base URL for assets (updated to Azbuy folder)
-$base_url = '/Azbuy/public';
+$base_url = '/AzBuy/public';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,7 +30,7 @@ $base_url = '/Azbuy/public';
                     <li><a href="<?php echo $base_url; ?>/index.php?action=my-auctions"><i class="fas fa-gavel"></i> My Auctions</a></li>
                     <li><a href="<?php echo $base_url; ?>/index.php?action=my-bids"><i class="fas fa-chart-line"></i> Activities</a></li>
                     <li><a href="<?php echo $base_url; ?>/index.php?action=settings"><i class="fas fa-cog"></i> Settings</a></li>
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    <li><a href="javascript:void(0)" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                 <?php else: ?>
                     <!-- Show these when user is LOGGED OUT -->
                     <li><a href="<?php echo $base_url; ?>/index.php?action=login"><i class="fas fa-sign-in-alt"></i> Login</a></li>
