@@ -1,6 +1,9 @@
 <?php
-// Define base URL for assets (updated to Azbuy folder)
+// Define base URL for assets
 $base_url = '/AzBuy/public';
+
+// Get current action to highlight active nav
+$current_action = $_GET['action'] ?? 'home';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -21,20 +24,83 @@ $base_url = '/AzBuy/public';
                 </a>
             </div>
             <ul class="nav-menu">
-                <li><a href="<?php echo $base_url; ?>/index.php?action=home" class="<?php echo ($page_title ?? '') == 'Home' ? 'active' : ''; ?>"><i class="fas fa-home"></i> Home</a></li>
-                <li><a href="<?php echo $base_url; ?>/index.php?action=about" class="<?php echo ($page_title ?? '') == 'About' ? 'active' : ''; ?>"><i class="fas fa-info-circle"></i> About</a></li>
+                <!-- Home Link -->
+                <li>
+                    <a href="<?php echo $base_url; ?>/index.php?action=home" 
+                       class="<?php echo $current_action == 'home' ? 'active' : ''; ?>">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                </li>
+                
+                <!-- About Link -->
+                <li>
+                    <a href="<?php echo $base_url; ?>/index.php?action=about" 
+                       class="<?php echo $current_action == 'about' ? 'active' : ''; ?>">
+                        <i class="fas fa-info-circle"></i> About
+                    </a>
+                </li>
                 
                 <?php if (isset($_SESSION['user_id'])): ?>
                     <!-- Show these when user is LOGGED IN -->
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=dashboard"><i class="fas fa-store"></i> Marketplace</a></li>
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=my-auctions"><i class="fas fa-gavel"></i> My Auctions</a></li>
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=my-bids"><i class="fas fa-chart-line"></i> Activities</a></li>
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=settings"><i class="fas fa-cog"></i> Settings</a></li>
-                    <li><a href="javascript:void(0)" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    
+                    <!-- Dashboard / Marketplace Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=dashboard" 
+                           class="<?php echo $current_action == 'dashboard' ? 'active' : ''; ?>">
+                            <i class="fas fa-store"></i> Marketplace
+                        </a>
+                    </li>
+                    
+                    <!-- My Auctions Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=my-auctions" 
+                           class="<?php echo $current_action == 'my-auctions' ? 'active' : ''; ?>">
+                            <i class="fas fa-gavel"></i> My Auctions
+                        </a>
+                    </li>
+                    
+                    <!-- Activities / My Bids Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=my-bids" 
+                           class="<?php echo $current_action == 'my-bids' ? 'active' : ''; ?>">
+                            <i class="fas fa-chart-line"></i> Activities
+                        </a>
+                    </li>
+                    
+                    <!-- Settings Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=settings" 
+                           class="<?php echo $current_action == 'settings' ? 'active' : ''; ?>">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </li>
+                    
+                    <!-- Logout Link -->
+                    <li>
+                        <a href="javascript:void(0)" 
+                           onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
+                    
                 <?php else: ?>
                     <!-- Show these when user is LOGGED OUT -->
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=login"><i class="fas fa-sign-in-alt"></i> Login</a></li>
-                    <li><a href="<?php echo $base_url; ?>/index.php?action=register"><i class="fas fa-user-plus"></i> Sign Up</a></li>
+                    
+                    <!-- Login Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=login" 
+                           class="<?php echo $current_action == 'login' ? 'active' : ''; ?>">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </a>
+                    </li>
+                    
+                    <!-- Register Link -->
+                    <li>
+                        <a href="<?php echo $base_url; ?>/index.php?action=register" 
+                           class="<?php echo $current_action == 'register' ? 'active' : ''; ?>">
+                            <i class="fas fa-user-plus"></i> Sign Up
+                        </a>
+                    </li>
                 <?php endif; ?>
             </ul>
             

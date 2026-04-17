@@ -6,7 +6,8 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Get bid counts for each auction
+// Get database connection for bid counts
+require_once dirname(__DIR__) . '/../models/Auction.php';
 require_once dirname(__DIR__) . '/../../config/Database.php';
 $database = new Database();
 $db_conn = $database->connect();
@@ -43,20 +44,20 @@ ob_start();
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th>Item</th>
-                        <th>Category</th>
-                        <th>Starting Price</th>
-                        <th>Current Bid</th>
-                        <th>Bids</th>
-                        <th>Time Left</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th style="text-align: left;">Item</th>
+                        <th style="text-align: left;">Category</th>
+                        <th style="text-align: center;">Starting Price</th>
+                        <th style="text-align: center;">Current Bid</th>
+                        <th style="text-align: center;">Bids</th>
+                        <th style="text-align: center;">Time Left</th>
+                        <th style="text-align: center;">Status</th>
+                        <th style="text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($my_auctions as $auction): ?>
                         <?php 
-                        // Get bid count for this auction
+                        // Get bid count using the separate connection
                         $bid_count = 0;
                         $stmt = $db_conn->prepare("SELECT COUNT(*) as count FROM bids WHERE auction_id = ?");
                         $stmt->bind_param("i", $auction['id']);
@@ -68,7 +69,7 @@ ob_start();
                         $stmt->close();
                         ?>
                         <tr class="<?php echo $auction['status'] == 'active' ? 'active-row' : 'ended-row'; ?>">
-                            <td class="item-cell">
+                            <td class="item-cell" style="text-align: left;">
                                 <div class="item-info">
                                     <?php if ($auction['image_url']): ?>
                                         <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/50x50/1a1a1a/ffd700?text=No+Image'">
@@ -81,11 +82,11 @@ ob_start();
                                     </div>
                                 </div>
                             </td>
-                            <td><?php echo htmlspecialchars($auction['category']); ?></td>
-                            <td class="price">$<?php echo number_format($auction['starting_price'], 2); ?></td>
-                            <td class="price">$<?php echo number_format($auction['current_price'], 2); ?></td>
-                            <td><?php echo $bid_count; ?> bids</td>
-                            <td>
+                            <td style="text-align: left;"><?php echo htmlspecialchars($auction['category']); ?></td>
+                            <td class="price" style="text-align: center;">$<?php echo number_format($auction['starting_price'], 2); ?></td>
+                            <td class="price" style="text-align: center;">$<?php echo number_format($auction['current_price'], 2); ?></td>
+                            <td style="text-align: center;"><?php echo $bid_count; ?> bids</td>
+                            <td class="time-cell" style="text-align: center;">
                                 <?php if ($auction['status'] == 'active'): ?>
                                     <?php
                                     $time_left = strtotime($auction['end_time']) - time();
@@ -94,7 +95,7 @@ ob_start();
                                         $hours = floor(($time_left % 86400) / 3600);
                                         $minutes = floor(($time_left % 3600) / 60);
                                     ?>
-                                        <span class="time-left">
+                                        <span class="time-left" data-endtime="<?php echo $auction['end_time']; ?>">
                                             <?php if ($days > 0): ?><?php echo $days; ?>d <?php endif; ?>
                                             <?php echo $hours; ?>h <?php echo $minutes; ?>m
                                         </span>
@@ -109,7 +110,7 @@ ob_start();
                                     <span class="time-left ended">Ended</span>
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td class="status-cell" style="text-align: center;">
                                 <?php if ($auction['status'] == 'active'): ?>
                                     <span class="status-badge active">Active</span>
                                 <?php elseif ($auction['status'] == 'payment_pending'): ?>
@@ -120,18 +121,23 @@ ob_start();
                                     <span class="status-badge ended">Ended</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="actions-cell">
-                                <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn-icon view" title="View Auction">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                <?php if ($auction['status'] == 'active'): ?>
-                                    <a href="index.php?action=delete-auction&id=<?php echo $auction['id']; ?>" class="btn-icon delete" onclick="return confirm('Delete this auction? This action cannot be undone.')" title="Delete Auction">
-                                        <i class="fas fa-trash"></i>
+                            <td class="actions-cell" style="text-align: center;">
+                                <div class="action-buttons">
+                                    <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn-icon view" title="View Auction">
+                                        <i class="fas fa-eye"></i>
                                     </a>
-                                <?php endif; ?>
-                                <?php if ($auction['status'] == 'ended' && isset($auction['winner_id']) && $auction['winner_id'] == $_SESSION['user_id']): ?>
-                                    <span class="winner-badge">You won!</span>
-                                <?php endif; ?>
+                                    <?php if ($auction['status'] == 'active'): ?>
+                                        <a href="index.php?action=edit-auction&id=<?php echo $auction['id']; ?>" class="btn-icon edit" title="Edit Auction">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="index.php?action=delete-auction&id=<?php echo $auction['id']; ?>" class="btn-icon delete" onclick="return confirm('Delete this auction? This action cannot be undone.')" title="Delete Auction">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($auction['status'] == 'ended' && isset($auction['winner_id']) && $auction['winner_id'] == $_SESSION['user_id']): ?>
+                                        <span class="winner-badge">You won!</span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -232,21 +238,26 @@ ob_start();
 .items-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 800px;
+    min-width: 900px;
 }
 
 .items-table th {
     background: rgba(255, 215, 0, 0.1);
     color: var(--primary-gold);
     padding: 1rem;
-    text-align: left;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .items-table td {
     padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: none;
     color: var(--text-secondary);
+    vertical-align: middle;
+}
+
+.items-table tr {
+    border-bottom: none;
 }
 
 .items-table tr:hover {
@@ -264,6 +275,11 @@ ob_start();
     height: 50px;
     border-radius: 12px;
     object-fit: cover;
+    flex-shrink: 0;
+}
+
+.item-cell .item-info div {
+    text-align: left;
 }
 
 .item-cell .item-info strong {
@@ -279,11 +295,13 @@ ob_start();
 .price {
     font-weight: 700;
     color: var(--primary-gold);
+    white-space: nowrap;
 }
 
 .time-left {
     font-size: 13px;
     color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 .time-left.ended {
@@ -304,6 +322,7 @@ ob_start();
     border-radius: 50px;
     font-size: 12px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .status-badge.active {
@@ -331,8 +350,14 @@ ob_start();
 }
 
 .actions-cell {
+    text-align: center !important;
+}
+
+.action-buttons {
     display: flex;
     gap: 8px;
+    justify-content: center;
+    align-items: center;
     flex-wrap: wrap;
 }
 
@@ -342,13 +367,21 @@ ob_start();
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     transition: var(--transition);
+    width: 32px;
+    height: 32px;
 }
 
 .btn-icon.view {
     background: rgba(23, 162, 184, 0.2);
     color: #17a2b8;
+}
+
+.btn-icon.edit {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
 }
 
 .btn-icon.delete {
@@ -368,6 +401,7 @@ ob_start();
     border-radius: 20px;
     font-size: 11px;
     font-weight: bold;
+    white-space: nowrap;
 }
 
 .empty-state {
@@ -464,7 +498,7 @@ ob_start();
         height: 40px;
     }
     
-    .actions-cell {
+    .action-buttons {
         flex-direction: column;
     }
     
@@ -490,8 +524,46 @@ function filterItems(status) {
     document.querySelectorAll('.items-tabs .tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
 }
+
+// Update countdown timers
+function updateCountdowns() {
+    const timeCells = document.querySelectorAll('.time-left[data-endtime]');
+    timeCells.forEach(cell => {
+        const endTimeStr = cell.dataset.endtime;
+        if (!endTimeStr) return;
+        
+        const endTime = new Date(endTimeStr).getTime();
+        
+        function update() {
+            const now = new Date().getTime();
+            const distance = endTime - now;
+            
+            if (distance < 0) {
+                cell.innerHTML = 'Ended';
+                cell.classList.add('ended');
+                return;
+            }
+            
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let display = '';
+            if (days > 0) display += days + 'd ';
+            display += hours + 'h ' + minutes + 'm';
+            cell.innerHTML = display;
+        }
+        
+        update();
+        setInterval(update, 60000);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateCountdowns();
+});
 </script>
 
 <?php

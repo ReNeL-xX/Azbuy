@@ -94,8 +94,8 @@ ob_start();
             <a href="index.php?action=dashboard" class="btn btn-primary">Browse Auctions</a>
         </div>
     <?php else: ?>
-        <div class="items-table">
-            <table>
+        <div class="table-responsive">
+            <table class="items-table">
                 <thead>
                     <tr>
                         <th>Item</th>
@@ -121,7 +121,7 @@ ob_start();
                                         <small>Seller: <?php echo $bid['seller_id'] == $_SESSION['user_id'] ? 'You' : 'Other'; ?></small>
                                     </div>
                                 </div>
-                            </td>
+                             </td>
                             <td class="price">$<?php echo number_format($bid['amount'], 2); ?></td>
                             <td class="price">$<?php echo number_format($bid['current_price'], 2); ?></td>
                             <td>
@@ -139,29 +139,27 @@ ob_start();
                                     <span class="status-badge ended"><?php echo ucfirst($bid['auction_status']); ?></span>
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td class="time-cell" data-endtime="<?php echo $bid['end_time']; ?>">
                                 <?php if ($bid['auction_status'] == 'active'): ?>
-                                    <?php
-                                    $time_left = strtotime($bid['end_time']) - time();
-                                    if ($time_left > 0):
-                                        $hours = floor($time_left / 3600);
-                                        $minutes = floor(($time_left % 3600) / 60);
-                                    ?>
-                                        <span class="countdown-small"><?php echo $hours; ?>h <?php echo $minutes; ?>m</span>
-                                    <?php else: ?>
-                                        <span>Ended</span>
-                                    <?php endif; ?>
-                                <?php elseif ($bid['bid_status'] == 'won_payment'): ?>
-                                    <span>Payment due</span>
+                                    <span class="time-left">Loading...</span>
+                                <?php elseif ($bid['auction_status'] == 'payment_pending' && $bid['bid_status'] == 'won_payment'): ?>
+                                    <span class="time-left pending">Payment due</span>
                                 <?php else: ?>
-                                    <span><?php echo date('M d, H:i', strtotime($bid['end_time'])); ?></span>
+                                    <span class="time-left ended"><?php echo date('M d, H:i', strtotime($bid['end_time'])); ?></span>
                                 <?php endif; ?>
                             </td>
                             <td class="actions">
                                 <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-primary">View</a>
+                                
                                 <?php if ($bid['bid_status'] == 'outbid' && $bid['auction_status'] == 'active'): ?>
                                     <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-success">Place Higher Bid</a>
                                 <?php endif; ?>
+                                
+                                <!-- Cancel Bid button for ANY active bid (winning OR outbid) -->
+                                <?php if ($bid['auction_status'] == 'active'): ?>
+                                    <a href="javascript:void(0)" onclick="cancelBid(<?php echo $bid['id']; ?>, '<?php echo htmlspecialchars($bid['title']); ?>')" class="btn-sm btn-danger">Cancel Bid</a>
+                                <?php endif; ?>
+                                
                                 <?php if ($bid['bid_status'] == 'won_payment'): ?>
                                     <button class="btn-sm btn-success" onclick="openPaymentModal(<?php echo $bid['auction_id']; ?>, <?php echo $bid['amount']; ?>)">Pay Now</button>
                                 <?php endif; ?>
@@ -255,7 +253,6 @@ function openPaymentModal(auctionId, amount) {
     currentAuctionId = auctionId;
     currentBidAmount = amount;
     
-    // Find the item title from the row
     const row = event.target.closest('tr');
     const itemTitle = row.querySelector('.item-info strong').innerText;
     
@@ -276,11 +273,59 @@ function confirmPayment() {
     }
 }
 
-// Countdown timers for active listings
+function cancelBid(bidId, itemTitle) {
+    if (confirm('Are you sure you want to cancel your bid on "' + itemTitle + '"? This action cannot be undone.')) {
+        window.location.href = 'index.php?action=cancel-bid&id=' + bidId;
+    }
+}
+
+// Update countdown timers on my bids page (matches dashboard)
+function updateBidCountdowns() {
+    const timeCells = document.querySelectorAll('.time-cell[data-endtime]');
+    
+    timeCells.forEach(cell => {
+        const endTimeStr = cell.dataset.endtime;
+        if (!endTimeStr) return;
+        
+        const endTime = new Date(endTimeStr).getTime();
+        const timeSpan = cell.querySelector('.time-left');
+        
+        if (!timeSpan) return;
+        
+        function update() {
+            const now = new Date().getTime();
+            const distance = endTime - now;
+            
+            if (distance < 0) {
+                timeSpan.innerHTML = 'Ended';
+                timeSpan.classList.add('ended');
+                return;
+            }
+            
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let display = '';
+            if (days > 0) display += days + 'd ';
+            display += hours + 'h ' + minutes + 'm';
+            timeSpan.innerHTML = display;
+            timeSpan.classList.remove('ended');
+        }
+        
+        update();
+        setInterval(update, 60000);
+    });
+}
+
+// Countdown timers for active listings section
 function initCountdowns() {
     const countdowns = document.querySelectorAll('.countdown');
     countdowns.forEach(el => {
-        const endTime = new Date(el.dataset.endtime).getTime();
+        const endTimeStr = el.dataset.endtime;
+        if (!endTimeStr) return;
+        
+        const endTime = new Date(endTimeStr).getTime();
         
         function update() {
             const now = new Date().getTime();
@@ -294,7 +339,6 @@ function initCountdowns() {
             const days = Math.floor(distance / (1000 * 60 * 60 * 24));
             const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
             
             let display = '';
             if (days > 0) display += days + 'd ';
@@ -303,7 +347,7 @@ function initCountdowns() {
         }
         
         update();
-        setInterval(update, 1000);
+        setInterval(update, 60000);
     });
 }
 
@@ -315,7 +359,11 @@ window.onclick = function(event) {
     }
 }
 
-initCountdowns();
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    updateBidCountdowns();
+    initCountdowns();
+});
 </script>
 
 <style>
@@ -347,7 +395,11 @@ initCountdowns();
     background: #28a745;
     color: white;
 }
-.btn-sm.btn-primary:hover, .btn-sm.btn-success:hover {
+.btn-sm.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+.btn-sm.btn-primary:hover, .btn-sm.btn-success:hover, .btn-sm.btn-danger:hover {
     transform: translateY(-2px);
 }
 .my-auctions-section h2 {
@@ -359,6 +411,134 @@ initCountdowns();
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.5rem;
+}
+.table-responsive {
+    overflow-x: auto;
+    background: var(--dark-elevated);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+.items-table th {
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary-gold);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+}
+.items-table td {
+    padding: 1rem;
+    border-bottom: none;
+    color: var(--text-secondary);
+}
+.items-table tr:hover {
+    background: rgba(255, 215, 0, 0.05);
+}
+.item-cell .item-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.item-cell .item-info img {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    object-fit: cover;
+}
+.item-cell .item-info strong {
+    display: block;
+    color: var(--text-primary);
+}
+.item-cell .item-info small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.price {
+    font-weight: 700;
+    color: var(--primary-gold);
+}
+.time-left {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.time-left.ended {
+    color: #dc3545;
+}
+.time-left.pending {
+    color: #ffc107;
+}
+.time-cell {
+    white-space: nowrap;
+}
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-badge.winning {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+.status-badge.outbid {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+.status-badge.won {
+    background: rgba(23, 162, 184, 0.15);
+    color: #17a2b8;
+    border: 1px solid rgba(23, 162, 184, 0.3);
+}
+.status-badge.lost {
+    background: rgba(108, 117, 125, 0.15);
+    color: #6c757d;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+.status-badge.ended {
+    background: rgba(108, 117, 125, 0.15);
+    color: #6c757d;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+.actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.summary-card {
+    background: var(--dark-elevated);
+    padding: 1rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--border-color);
+}
+.summary-card i {
+    font-size: 2rem;
+    color: var(--primary-gold);
+}
+.summary-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: block;
+}
+.summary-card .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary-gold);
 }
 </style>
 

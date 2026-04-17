@@ -160,7 +160,10 @@ function startCountdown() {
     const timerDiv = document.querySelector('.countdown-large');
     if (!timerDiv) return;
     
-    const endTime = new Date(timerDiv.dataset.endtime).getTime();
+    const endTimeStr = timerDiv.dataset.endtime;
+    if (!endTimeStr) return;
+    
+    const endTime = new Date(endTimeStr).getTime();
     const timerSpan = timerDiv.querySelector('.timer');
     
     function updateCountdown() {
@@ -179,13 +182,17 @@ function startCountdown() {
         
         let display = '';
         if (days > 0) display += days + 'd ';
-        display += hours + 'h ' + minutes + 'm ' + seconds + 's';
+        display += hours.toString().padStart(2, '0') + 'h ';
+        display += minutes.toString().padStart(2, '0') + 'm ';
+        display += seconds.toString().padStart(2, '0') + 's';
         timerSpan.innerHTML = display;
     }
     
     updateCountdown();
     setInterval(updateCountdown, 1000);
 }
+
+startCountdown();
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tab => {

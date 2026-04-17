@@ -2162,3 +2162,21 @@ input:checked + .slider:before {
 .auction-card:hover .auction-image img {
     transform: scale(1.05);
 }
+
+/* Time left styles for my bids page */
+.time-left {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.time-left.ended {
+    color: #dc3545;
+}
+
+.time-left.pending {
+    color: #ffc107;
+}
+
+.time-cell {
+    white-space: nowrap;
+}

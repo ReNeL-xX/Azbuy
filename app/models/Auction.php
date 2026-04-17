@@ -6,8 +6,9 @@ class Auction {
         $this->conn = $conn;
     }
     
+    // Create a new auction
     public function create($seller_id, $title, $description, $category, $starting_price, $end_time, $image_url = null): array {
-        if (empty($title) || $starting_price <= 0) {
+        if (empty($title) || empty($starting_price) || $starting_price <= 0) {
             return ['success' => false, 'message' => 'Invalid auction data'];
         }
         
@@ -28,6 +29,7 @@ class Auction {
         return ['success' => false, 'message' => 'Failed to create auction: ' . $error];
     }
     
+    // Get all active auctions
     public function getAllActive($limit = 20, $offset = 0, $category = null) {
         $sql = "SELECT a.*, u.username as seller_name, 
                 (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
@@ -55,6 +57,7 @@ class Auction {
         return $auctions;
     }
     
+    // Get auction by ID
     public function getAuctionById($id) {
         $sql = "SELECT a.*, u.username as seller_name, u.id as seller_id
                 FROM auctions a 
@@ -69,10 +72,12 @@ class Auction {
         return $auction;
     }
     
+    // Place a bid
     public function placeBid($auction_id, $bidder_id, $amount): array {
         $this->conn->begin_transaction();
         
         try {
+            // Check auction status and current price
             $check_sql = "SELECT current_price, end_time, status, seller_id FROM auctions WHERE id = ? FOR UPDATE";
             $stmt = $this->conn->prepare($check_sql);
             $stmt->bind_param("i", $auction_id);
@@ -116,7 +121,7 @@ class Auction {
             $stmt->close();
             
             $this->conn->commit();
-            return ['success' => true, 'message' => 'Bid placed successfully!'];
+            return ['success' => true, 'message' => 'Bid placed successfully! You are now the highest bidder.'];
             
         } catch (Exception $e) {
             $this->conn->rollback();
@@ -124,6 +129,7 @@ class Auction {
         }
     }
     
+    // Get user's auctions
     public function getUserAuctions($user_id) {
         $sql = "SELECT * FROM auctions WHERE seller_id = ? ORDER BY created_at DESC";
         $stmt = $this->conn->prepare($sql);
@@ -135,6 +141,7 @@ class Auction {
         return $auctions;
     }
     
+    // Get user's bids with auction details for activities page
     public function getUserBids($user_id) {
         $sql = "SELECT b.*, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url
                 FROM bids b 
@@ -181,6 +188,7 @@ class Auction {
         return $bids;
     }
     
+    // Delete auction
     public function deleteAuction($auction_id, $user_id): array {
         $check_sql = "SELECT id, status FROM auctions WHERE id = ? AND seller_id = ?";
         $stmt = $this->conn->prepare($check_sql);
@@ -191,7 +199,7 @@ class Auction {
         $stmt->close();
         
         if (!$auction) {
-            return ['success' => false, 'message' => 'Auction not found'];
+            return ['success' => false, 'message' => 'Auction not found or you do not have permission'];
         }
         
         if ($auction['status'] != 'active') {
@@ -212,12 +220,158 @@ class Auction {
         return ['success' => false, 'message' => 'Failed to delete auction: ' . $error];
     }
     
+    // Delete/Cancel a bid (user can delete their own bid if auction is still active)
+    public function deleteBid($bid_id, $user_id): array {
+        // Check if bid exists and belongs to user
+        $check_sql = "SELECT b.*, a.current_price, a.status, a.end_time, a.seller_id, a.starting_price
+                      FROM bids b 
+                      JOIN auctions a ON b.auction_id = a.id 
+                      WHERE b.id = ? AND b.bidder_id = ?";
+        $stmt = $this->conn->prepare($check_sql);
+        $stmt->bind_param("ii", $bid_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $bid = $result->fetch_assoc();
+        $stmt->close();
+        
+        if (!$bid) {
+            return ['success' => false, 'message' => 'Bid not found or you do not have permission'];
+        }
+        
+        // Check if auction is still active (can cancel any bid on active auction)
+        if ($bid['status'] != 'active') {
+            return ['success' => false, 'message' => 'Cannot cancel bid on ended auction'];
+        }
+        
+        if (strtotime($bid['end_time']) < time()) {
+            return ['success' => false, 'message' => 'Auction has already ended'];
+        }
+        
+        // Start transaction
+        $this->conn->begin_transaction();
+        
+        try {
+            // Delete the bid
+            $delete_sql = "DELETE FROM bids WHERE id = ?";
+            $stmt = $this->conn->prepare($delete_sql);
+            $stmt->bind_param("i", $bid_id);
+            $stmt->execute();
+            $stmt->close();
+            
+            // Get the new highest bid for this auction
+            $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
+            $stmt = $this->conn->prepare($highest_sql);
+            $stmt->bind_param("i", $bid['auction_id']);
+            $stmt->execute();
+            $highest = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            
+            $new_current_price = $highest['max_bid'] ?? null;
+            
+            // If no bids left, revert to starting price
+            if ($new_current_price === null) {
+                $new_current_price = $bid['starting_price'];
+            }
+            
+            // Update auction current price
+            $update_sql = "UPDATE auctions SET current_price = ? WHERE id = ?";
+            $stmt = $this->conn->prepare($update_sql);
+            $stmt->bind_param("di", $new_current_price, $bid['auction_id']);
+            $stmt->execute();
+            $stmt->close();
+            
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Bid cancelled successfully'];
+            
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            return ['success' => false, 'message' => 'Failed to cancel bid: ' . $e->getMessage()];
+        }
+    }
+    
+    // Get single bid by ID (for verification)
+    public function getBidById($bid_id, $user_id) {
+        $sql = "SELECT b.*, a.title, a.status, a.end_time, a.current_price 
+                FROM bids b 
+                JOIN auctions a ON b.auction_id = a.id 
+                WHERE b.id = ? AND b.bidder_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $bid_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $bid = $result->fetch_assoc();
+        $stmt->close();
+        return $bid;
+    }
+    
+    // Update auction (only for active auctions that belong to the user)
+    public function updateAuction($auction_id, $user_id, $title, $description, $category, $end_time, $image_url = null): array {
+        // Check if auction exists and belongs to user
+        $check_sql = "SELECT id, status, image_url FROM auctions WHERE id = ? AND seller_id = ?";
+        $stmt = $this->conn->prepare($check_sql);
+        $stmt->bind_param("ii", $auction_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $auction = $result->fetch_assoc();
+        $stmt->close();
+        
+        if (!$auction) {
+            return ['success' => false, 'message' => 'Auction not found or you do not have permission'];
+        }
+        
+        if ($auction['status'] != 'active') {
+            return ['success' => false, 'message' => 'Only active auctions can be edited'];
+        }
+        
+        // Build update query
+        $sql = "UPDATE auctions SET title = ?, description = ?, category = ?, end_time = ?";
+        $params = [$title, $description, $category, $end_time];
+        $types = "ssss";
+        
+        if ($image_url !== null) {
+            $sql .= ", image_url = ?";
+            $params[] = $image_url;
+            $types .= "s";
+        }
+        
+        $sql .= " WHERE id = ? AND seller_id = ?";
+        $params[] = $auction_id;
+        $params[] = $user_id;
+        $types .= "ii";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        
+        if ($stmt->execute()) {
+            $stmt->close();
+            return ['success' => true, 'message' => 'Auction updated successfully'];
+        }
+        
+        $error = $stmt->error;
+        $stmt->close();
+        return ['success' => false, 'message' => 'Failed to update auction: ' . $error];
+    }
+    
+    // Get auction for editing (verify ownership)
+    public function getAuctionForEdit($auction_id, $user_id) {
+        $sql = "SELECT * FROM auctions WHERE id = ? AND seller_id = ? AND status = 'active'";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $auction_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $auction = $result->fetch_assoc();
+        $stmt->close();
+        return $auction;
+    }
+    
+    // Check and update ended auctions
     public function checkEndedAuctions() {
         $sql = "SELECT id FROM auctions WHERE status = 'active' AND end_time <= NOW()";
         $result = $this->conn->query($sql);
         $ended_auctions = $result->fetch_all(MYSQLI_ASSOC);
         
         foreach ($ended_auctions as $auction) {
+            // Get highest bid
             $highest_bid_sql = "SELECT bidder_id, amount FROM bids WHERE auction_id = ? ORDER BY amount DESC LIMIT 1";
             $stmt = $this->conn->prepare($highest_bid_sql);
             $stmt->bind_param("i", $auction['id']);
@@ -243,6 +397,7 @@ class Auction {
         }
     }
     
+    // Process payment for won auction
     public function processPayment($auction_id, $user_id): array {
         $this->conn->begin_transaction();
         
@@ -258,6 +413,7 @@ class Auction {
                 throw new Exception("Invalid auction or payment deadline passed");
             }
             
+            // Check user balance
             $user_sql = "SELECT balance FROM users WHERE id = ? FOR UPDATE";
             $stmt = $this->conn->prepare($user_sql);
             $stmt->bind_param("i", $user_id);
@@ -266,21 +422,24 @@ class Auction {
             $stmt->close();
             
             if ($user['balance'] < $auction['winning_bid']) {
-                throw new Exception("Insufficient balance");
+                throw new Exception("Insufficient balance. Please add funds to your wallet.");
             }
             
+            // Deduct balance
             $update_balance = "UPDATE users SET balance = balance - ? WHERE id = ?";
             $stmt = $this->conn->prepare($update_balance);
             $stmt->bind_param("di", $auction['winning_bid'], $user_id);
             $stmt->execute();
             $stmt->close();
             
+            // Update auction status
             $update_auction = "UPDATE auctions SET status = 'paid' WHERE id = ?";
             $stmt = $this->conn->prepare($update_auction);
             $stmt->bind_param("i", $auction_id);
             $stmt->execute();
             $stmt->close();
             
+            // Add funds to seller
             $update_seller = "UPDATE users SET balance = balance + ? WHERE id = ?";
             $stmt = $this->conn->prepare($update_seller);
             $stmt->bind_param("di", $auction['winning_bid'], $auction['seller_id']);
@@ -288,7 +447,7 @@ class Auction {
             $stmt->close();
             
             $this->conn->commit();
-            return ['success' => true, 'message' => 'Payment successful!'];
+            return ['success' => true, 'message' => 'Payment successful! The item is now yours.'];
             
         } catch (Exception $e) {
             $this->conn->rollback();
@@ -297,5 +456,3 @@ class Auction {
     }
 }
 ?>
-
-

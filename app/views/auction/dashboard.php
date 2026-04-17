@@ -60,11 +60,14 @@ ob_start();
 </div>
 
 <script>
-// Countdown timers
 function initCountdowns() {
     const countdowns = document.querySelectorAll('.countdown');
     countdowns.forEach(el => {
-        const endTime = new Date(el.dataset.endtime).getTime();
+        const endTimeStr = el.dataset.endtime;
+        if (!endTimeStr) return;
+        
+        const endTime = new Date(endTimeStr).getTime();
+        const serverTime = new Date().getTime(); // You can pass server time here
         
         function update() {
             const now = new Date().getTime();
@@ -78,7 +81,6 @@ function initCountdowns() {
             const days = Math.floor(distance / (1000 * 60 * 60 * 24));
             const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
             
             let display = '';
             if (days > 0) display += days + 'd ';
@@ -87,7 +89,7 @@ function initCountdowns() {
         }
         
         update();
-        setInterval(update, 1000);
+        setInterval(update, 60000); // Update every minute instead of every second
     });
 }
 

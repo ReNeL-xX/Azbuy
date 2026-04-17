@@ -54,7 +54,10 @@ class AuctionController {
         $category = $_POST['category'] ?? '';
         $starting_price = floatval($_POST['starting_price'] ?? 0);
         $duration_hours = intval($_POST['duration_hours'] ?? 24);
-        $end_time = date('Y-m-d H:i:s', strtotime("+{$duration_hours} hours"));
+        
+        // Use server time for consistency
+        $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
         
         // Validation
         $errors = [];
@@ -150,35 +153,35 @@ class AuctionController {
     }
     
     public function placeBid() {
-    if (!isset($_SESSION['user_id'])) {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login to bid']);
+            exit;
+        }
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+            exit;
+        }
+        
+        $auction_id = intval($_POST['auction_id'] ?? 0);
+        $amount = floatval($_POST['amount'] ?? 0);
+        
+        if ($auction_id <= 0 || $amount <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid bid amount']);
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->placeBid($auction_id, $_SESSION['user_id'], $amount);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login to bid']);
+        echo json_encode($result);
         exit;
     }
-    
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
-        exit;
-    }
-    
-    $auction_id = intval($_POST['auction_id'] ?? 0);
-    $amount = floatval($_POST['amount'] ?? 0);
-    
-    if ($auction_id <= 0 || $amount <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Invalid bid amount']);
-        exit;
-    }
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $result = $auctionModel->placeBid($auction_id, $_SESSION['user_id'], $amount);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode($result);
-    exit;
-}
     
     public function myAuctions() {
         if (!isset($_SESSION['user_id'])) {
@@ -244,7 +247,6 @@ class AuctionController {
         $auctionModel = new Auction($conn);
         $result = $auctionModel->processPayment($auction_id, $_SESSION['user_id']);
         
-        // Update session balance
         if ($result['success']) {
             $user_sql = "SELECT balance FROM users WHERE id = ?";
             $stmt = $conn->prepare($user_sql);
@@ -265,6 +267,157 @@ class AuctionController {
         
         header('Location: index.php?action=my-bids');
         exit;
+    }
+    
+    public function cancelBid() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $bid_id = $_GET['id'] ?? 0;
+        
+        if ($bid_id <= 0) {
+            $_SESSION['error'] = 'Invalid bid ID';
+            header('Location: index.php?action=my-bids');
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        
+        $bid = $auctionModel->getBidById($bid_id, $_SESSION['user_id']);
+        
+        if (!$bid) {
+            $conn->close();
+            $_SESSION['error'] = 'Bid not found or you do not have permission';
+            header('Location: index.php?action=my-bids');
+            exit;
+        }
+        
+        if ($bid['status'] != 'active') {
+            $conn->close();
+            $_SESSION['error'] = 'Cannot cancel bid on ended auction';
+            header('Location: index.php?action=my-bids');
+            exit;
+        }
+        
+        $result = $auctionModel->deleteBid($bid_id, $_SESSION['user_id']);
+        $conn->close();
+        
+        if ($result['success']) {
+            $_SESSION['success'] = $result['message'];
+        } else {
+            $_SESSION['error'] = $result['message'];
+        }
+        
+        header('Location: index.php?action=my-bids');
+        exit;
+    }
+    
+    public function showEditAuction() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $auction_id = $_GET['id'] ?? 0;
+        
+        if ($auction_id <= 0) {
+            $_SESSION['error'] = 'Invalid auction ID';
+            header('Location: index.php?action=my-auctions');
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $auction = $auctionModel->getAuctionForEdit($auction_id, $_SESSION['user_id']);
+        $conn->close();
+        
+        if (!$auction) {
+            $_SESSION['error'] = 'Auction not found or you do not have permission to edit it';
+            header('Location: index.php?action=my-auctions');
+            exit;
+        }
+        
+        require_once __DIR__ . '/../views/auction/edit_auction.php';
+    }
+    
+    public function updateAuction() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=my-auctions');
+            exit;
+        }
+        
+        $auction_id = $_POST['auction_id'] ?? 0;
+        $title = trim($_POST['title'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $category = $_POST['category'] ?? '';
+        $duration_hours = intval($_POST['duration_hours'] ?? 24);
+        
+        // Calculate new end time
+        $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
+        
+        // Validation
+        $errors = [];
+        if (empty($title)) {
+            $errors[] = 'Title is required';
+        }
+        if (empty($description)) {
+            $errors[] = 'Description is required';
+        }
+        if (empty($category)) {
+            $errors[] = 'Category is required';
+        }
+        
+        if (!empty($errors)) {
+            $_SESSION['error'] = implode('<br>', $errors);
+            header('Location: index.php?action=edit-auction&id=' . $auction_id);
+            exit;
+        }
+        
+        // Handle image upload
+        $image_url = null;
+        $keep_image = isset($_POST['keep_image']) ? true : false;
+        
+        if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $filename = $_FILES['image']['name'];
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            if (in_array($ext, $allowed)) {
+                $upload_dir = __DIR__ . '/../../public/assets/uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+                
+                $new_filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
+                if (move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $new_filename)) {
+                    $image_url = 'assets/uploads/' . $new_filename;
+                }
+            }
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->updateAuction($auction_id, $_SESSION['user_id'], $title, $description, $category, $end_time, $image_url);
+        $conn->close();
+        
+        if ($result['success']) {
+            $_SESSION['success'] = $result['message'];
+            header('Location: index.php?action=my-auctions');
+            exit;
+        } else {
+            $_SESSION['error'] = $result['message'];
+            header('Location: index.php?action=edit-auction&id=' . $auction_id);
+            exit;
+        }
     }
 }
 

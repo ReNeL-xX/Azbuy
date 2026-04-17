@@ -106,6 +106,19 @@ switch ($action) {
         $auctionController->payForAuction();
         break;
     
+    case 'cancel-bid':
+        $auctionController->cancelBid();
+        break;
+    
+    // Edit Auction routes (NEW)
+    case 'edit-auction':
+        $auctionController->showEditAuction();
+        break;
+    
+    case 'update-auction':
+        $auctionController->updateAuction();
+        break;
+    
     // User routes
     case 'settings':
         $userController->showSettings();
