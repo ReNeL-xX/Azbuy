@@ -75,6 +75,16 @@ $current_action = $_GET['action'] ?? 'home';
                         </a>
                     </li>
                     
+                    <!-- Admin Panel Link - Only visible to admins -->
+                    <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true): ?>
+                        <li>
+                            <a href="<?php echo $base_url; ?>/index.php?action=admin-dashboard" 
+                               class="<?php echo strpos($current_action, 'admin') === 0 ? 'active' : ''; ?>">
+                                <i class="fas fa-user-shield"></i> Admin Panel
+                            </a>
+                        </li>
+                    <?php endif; ?>
+                    
                     <!-- Logout Link -->
                     <li>
                         <a href="javascript:void(0)" 
@@ -107,6 +117,9 @@ $current_action = $_GET['action'] ?? 'home';
             <?php if (isset($_SESSION['username'])): ?>
                 <div class="user-greeting">
                     <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true): ?>
+                        <span class="admin-badge" style="background: var(--primary-gold); color: #000; padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 8px;">Admin</span>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>

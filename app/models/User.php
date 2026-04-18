@@ -42,7 +42,7 @@ class User {
     
     // Login user
     public function login($username, $password): array {
-        $sql = "SELECT id, username, email, password, full_name, balance, profile_pic, is_active 
+        $sql = "SELECT id, username, email, password, full_name, balance, profile_pic, is_active, is_admin 
                 FROM users WHERE username = ? OR email = ?";
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("ss", $username, $username);
@@ -65,7 +65,7 @@ class User {
     
     // Get user by ID
     public function getUserById($id): ?array {
-        $sql = "SELECT id, username, email, full_name, phone, address, profile_pic, balance, created_at 
+        $sql = "SELECT id, username, email, full_name, phone, address, profile_pic, balance, created_at, is_admin 
                 FROM users WHERE id = ?";
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("i", $id);
@@ -125,6 +125,28 @@ class User {
         $success = $stmt->execute();
         $stmt->close();
         return $success;
+    }
+    
+
+    public function isAdmin($user_id): bool {
+        $sql = "SELECT is_admin FROM users WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        $stmt->close();
+        return $user && $user['is_admin'] == 1;
+    }
+    
+  
+    public function logAdminAction($admin_id, $action, $details) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $sql = "INSERT INTO admin_logs (admin_id, action, details, ip_address) VALUES (?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("isss", $admin_id, $action, $details, $ip);
+        $stmt->execute();
+        $stmt->close();
     }
 }
 ?>

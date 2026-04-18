@@ -14,6 +14,7 @@ $controllers_path = BASE_PATH . '/controllers/';
 $auth_file = $controllers_path . 'AuthController.php';
 $user_file = $controllers_path . 'UserController.php';
 $auction_file = $controllers_path . 'AuctionController.php';
+$admin_file = $controllers_path . 'AdminController.php';
 
 // Check if files exist before including
 if (file_exists($auth_file)) {
@@ -34,10 +35,17 @@ if (file_exists($auction_file)) {
     die('AuctionController.php not found at: ' . $auction_file);
 }
 
+if (file_exists($admin_file)) {
+    require_once $admin_file;
+} else {
+    die('AdminController.php not found at: ' . $admin_file);
+}
+
 // Create controller instances
 $authController = new AuthController();
 $userController = new UserController();
 $auctionController = new AuctionController();
+$adminController = new AdminController();
 
 switch ($action) {
     // Public routes
@@ -110,13 +118,49 @@ switch ($action) {
         $auctionController->cancelBid();
         break;
     
-    // Edit Auction routes (NEW)
     case 'edit-auction':
         $auctionController->showEditAuction();
         break;
     
     case 'update-auction':
         $auctionController->updateAuction();
+        break;
+    
+    // Admin routes
+    case 'admin-dashboard':
+        $adminController->dashboard();
+        break;
+    
+    case 'admin-auctions':
+        $adminController->manageAuctions();
+        break;
+    
+    case 'admin-edit-auction':
+        $adminController->editAuction();
+        break;
+    
+    case 'admin-update-auction':
+        $adminController->updateAuction();
+        break;
+    
+    case 'admin-delete-auction':
+        $adminController->deleteAuction();
+        break;
+    
+    case 'admin-users':
+        $adminController->manageUsers();
+        break;
+    
+    case 'admin-edit-user':
+        $adminController->editUser();
+        break;
+    
+    case 'admin-update-user':
+        $adminController->updateUser();
+        break;
+    
+    case 'admin-delete-user':
+        $adminController->deleteUser();
         break;
     
     // User routes

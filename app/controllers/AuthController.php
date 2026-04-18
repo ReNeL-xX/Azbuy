@@ -12,7 +12,17 @@ class AuthController {
     
     public function showLogin() {
         if (isset($_SESSION['user_id'])) {
-            header('Location: index.php?action=dashboard');
+            // Check if user is admin
+            $conn = $this->connectDB();
+            $userModel = new User($conn);
+            $is_admin = $userModel->isAdmin($_SESSION['user_id']);
+            $conn->close();
+            
+            if ($is_admin) {
+                header('Location: index.php?action=admin-dashboard');
+            } else {
+                header('Location: index.php?action=dashboard');
+            }
             exit;
         }
         require_once __DIR__ . '/../views/auth/login.php';
@@ -51,9 +61,23 @@ class AuthController {
             $_SESSION['username'] = $result['user']['username'];
             $_SESSION['user_email'] = $result['user']['email'];
             $_SESSION['user_balance'] = $result['user']['balance'];
-            $_SESSION['success'] = $result['message'];
-            header('Location: index.php?action=dashboard');
-            exit;
+            
+            // Check if user is admin
+            $conn2 = $this->connectDB();
+            $userModel2 = new User($conn2);
+            $is_admin = $userModel2->isAdmin($result['user']['id']);
+            $conn2->close();
+            
+            if ($is_admin) {
+                $_SESSION['is_admin'] = true;
+                $_SESSION['success'] = 'Welcome Admin! Redirecting to Admin Dashboard...';
+                header('Location: index.php?action=admin-dashboard');
+                exit;
+            } else {
+                $_SESSION['success'] = $result['message'];
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
         } else {
             $_SESSION['error'] = $result['message'];
             header('Location: index.php?action=login');
@@ -130,3 +154,4 @@ class AuthController {
 }
 
 } // end if class_exists check
+?>
