@@ -58,14 +58,13 @@ class AdminController {
     }
     
     public function manageAuctions() {
-    $this->checkAdmin();
-    
-    $conn = $this->connectDB();
-    $auctions = $conn->query("SELECT a.*, u.username as seller_name FROM auctions a JOIN users u ON a.seller_id = u.id ORDER BY a.created_at DESC")->fetch_all(MYSQLI_ASSOC);
-   
-    
-    require_once __DIR__ . '/../views/admin/auctions.php';
-}
+        $this->checkAdmin();
+        
+        $conn = $this->connectDB();
+        $auctions = $conn->query("SELECT a.*, u.username as seller_name FROM auctions a JOIN users u ON a.seller_id = u.id ORDER BY a.created_at DESC")->fetch_all(MYSQLI_ASSOC);
+        
+        require_once __DIR__ . '/../views/admin/auctions.php';
+    }
     
     public function editAuction() {
         $this->checkAdmin();
@@ -87,44 +86,41 @@ class AdminController {
     }
     
     public function updateAuction() {
-    $this->checkAdmin();
-    
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin-auctions');
+            exit;
+        }
+        
+        $auction_id = $_POST['auction_id'] ?? 0;
+        $title = trim($_POST['title'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $category = $_POST['category'] ?? '';
+        $current_price = floatval($_POST['current_price'] ?? 0);
+        
+        $conn = $this->connectDB();
+        
+        // Log admin action
+        $userModel = new User($conn);
+        $userModel->logAdminAction($_SESSION['user_id'], 'UPDATE_AUCTION', "Updated auction ID: $auction_id");
+        
+        $sql = "UPDATE auctions SET title = ?, description = ?, category = ?, current_price = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("sssdi", $title, $description, $category, $current_price, $auction_id);
+        
+        if ($stmt->execute()) {
+            $_SESSION['success'] = 'Auction updated successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to update auction';
+        }
+        
+        $stmt->close();
+        $conn->close();
+        
         header('Location: index.php?action=admin-auctions');
         exit;
     }
-    
-    $auction_id = $_POST['auction_id'] ?? 0;
-    $title = trim($_POST['title'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $category = $_POST['category'] ?? '';
-    $current_price = floatval($_POST['current_price'] ?? 0);
-    
-    // REMOVED: $status = $_POST['status'] ?? '';
-    
-    $conn = $this->connectDB();
-    
-    // Log admin action
-    $userModel = new User($conn);
-    $userModel->logAdminAction($_SESSION['user_id'], 'UPDATE_AUCTION', "Updated auction ID: $auction_id");
-    
-    // Updated query - removed status
-    $sql = "UPDATE auctions SET title = ?, description = ?, category = ?, current_price = ? WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssdi", $title, $description, $category, $current_price, $auction_id);
-    
-    if ($stmt->execute()) {
-        $_SESSION['success'] = 'Auction updated successfully';
-    } else {
-        $_SESSION['error'] = 'Failed to update auction';
-    }
-    
-    $stmt->close();
-    $conn->close();
-    
-    header('Location: index.php?action=admin-auctions');
-    exit;
-}
     
     public function deleteAuction() {
         $this->checkAdmin();
@@ -184,49 +180,49 @@ class AdminController {
     }
     
     public function updateUser() {
-    $this->checkAdmin();
-    
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=admin-users');
+            exit;
+        }
+        
+        $user_id = $_POST['user_id'] ?? 0;
+        $full_name = trim($_POST['full_name'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        $balance = floatval($_POST['balance'] ?? 0);
+        $is_admin = isset($_POST['is_admin']) ? intval($_POST['is_admin']) : 0;
+        
+        // Prevent admin from removing their own admin status
+        if ($user_id == $_SESSION['user_id'] && $is_admin == 0) {
+            $_SESSION['error'] = 'You cannot remove your own admin privileges';
+            header('Location: index.php?action=admin-users');
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        
+        // Log admin action
+        $userModel = new User($conn);
+        $userModel->logAdminAction($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID: $user_id, Admin status: $is_admin");
+        
+        $sql = "UPDATE users SET full_name = ?, phone = ?, address = ?, balance = ?, is_admin = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("sssdii", $full_name, $phone, $address, $balance, $is_admin, $user_id);
+        
+        if ($stmt->execute()) {
+            $_SESSION['success'] = 'User updated successfully';
+        } else {
+            $_SESSION['error'] = 'Failed to update user: ' . $stmt->error;
+        }
+        
+        $stmt->close();
+        $conn->close();
+        
         header('Location: index.php?action=admin-users');
         exit;
     }
-    
-    $user_id = $_POST['user_id'] ?? 0;
-    $full_name = trim($_POST['full_name'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    $balance = floatval($_POST['balance'] ?? 0);
-    $is_admin = isset($_POST['is_admin']) ? intval($_POST['is_admin']) : 0;
-    
-    // Prevent admin from removing their own admin status
-    if ($user_id == $_SESSION['user_id'] && $is_admin == 0) {
-        $_SESSION['error'] = 'You cannot remove your own admin privileges';
-        header('Location: index.php?action=admin-users');
-        exit;
-    }
-    
-    $conn = $this->connectDB();
-    
-    // Log admin action
-    $userModel = new User($conn);
-    $userModel->logAdminAction($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID: $user_id, Admin status: $is_admin");
-    
-    $sql = "UPDATE users SET full_name = ?, phone = ?, address = ?, balance = ?, is_admin = ? WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssdii", $full_name, $phone, $address, $balance, $is_admin, $user_id);
-    
-    if ($stmt->execute()) {
-        $_SESSION['success'] = 'User updated successfully';
-    } else {
-        $_SESSION['error'] = 'Failed to update user: ' . $stmt->error;
-    }
-    
-    $stmt->close();
-    $conn->close();
-    
-    header('Location: index.php?action=admin-users');
-    exit;
-}
     
     public function deleteUser() {
         $this->checkAdmin();
@@ -265,3 +261,4 @@ class AdminController {
 }
 
 } // end if class_exists check
+?>

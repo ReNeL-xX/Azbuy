@@ -7,16 +7,16 @@ class Auction {
     }
     
     // Create a new auction
-    public function create($seller_id, $title, $description, $category, $starting_price, $end_time, $image_url = null): array {
+    public function create($seller_id, $title, $description, $category, $starting_price, $end_time, $image_url = null, $bid_increment = 1.00): array {
         if (empty($title) || empty($starting_price) || $starting_price <= 0) {
             return ['success' => false, 'message' => 'Invalid auction data'];
         }
         
-        $sql = "INSERT INTO auctions (seller_id, title, description, category, starting_price, current_price, end_time, image_url, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')";
+        $sql = "INSERT INTO auctions (seller_id, title, description, category, starting_price, current_price, bid_increment, end_time, image_url, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')";
         $stmt = $this->conn->prepare($sql);
         $current_price = $starting_price;
-        $stmt->bind_param("isssddss", $seller_id, $title, $description, $category, $starting_price, $current_price, $end_time, $image_url);
+        $stmt->bind_param("isssddsss", $seller_id, $title, $description, $category, $starting_price, $current_price, $bid_increment, $end_time, $image_url);
         
         if ($stmt->execute()) {
             $auction_id = $this->conn->insert_id;
@@ -72,62 +72,89 @@ class Auction {
         return $auction;
     }
     
-    // Place a bid
-    public function placeBid($auction_id, $bidder_id, $amount): array {
-        $this->conn->begin_transaction();
+    
+    // Place a bid (automatically deletes previous bid from same user on this auction)
+// Place a bid (automatically deletes previous bid from same user on this auction)
+public function placeBid($auction_id, $bidder_id, $amount): array {
+    $this->conn->begin_transaction();
+    
+    try {
+        // Check auction status, current price, and bid increment
+        $check_sql = "SELECT current_price, end_time, status, seller_id, bid_increment FROM auctions WHERE id = ? FOR UPDATE";
+        $stmt = $this->conn->prepare($check_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $auction = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         
-        try {
-            // Check auction status and current price
-            $check_sql = "SELECT current_price, end_time, status, seller_id FROM auctions WHERE id = ? FOR UPDATE";
-            $stmt = $this->conn->prepare($check_sql);
-            $stmt->bind_param("i", $auction_id);
-            $stmt->execute();
-            $auction = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            if (!$auction) {
-                throw new Exception("Auction not found");
-            }
-            
-            if ($auction['status'] != 'active') {
-                throw new Exception("This auction is no longer active");
-            }
-            
-            if (strtotime($auction['end_time']) < time()) {
-                throw new Exception("Auction has already ended");
-            }
-            
-            if ($bidder_id == $auction['seller_id']) {
-                throw new Exception("You cannot bid on your own auction");
-            }
-            
-            $min_bid = $auction['current_price'] + 1;
-            if ($amount < $min_bid) {
-                throw new Exception("Bid must be at least $" . number_format($min_bid, 2));
-            }
-            
-            // Insert bid
-            $bid_sql = "INSERT INTO bids (auction_id, bidder_id, amount) VALUES (?, ?, ?)";
-            $stmt = $this->conn->prepare($bid_sql);
-            $stmt->bind_param("iid", $auction_id, $bidder_id, $amount);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Update auction current price
-            $update_sql = "UPDATE auctions SET current_price = ? WHERE id = ?";
-            $stmt = $this->conn->prepare($update_sql);
-            $stmt->bind_param("di", $amount, $auction_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            $this->conn->commit();
-            return ['success' => true, 'message' => 'Bid placed successfully! You are now the highest bidder.'];
-            
-        } catch (Exception $e) {
-            $this->conn->rollback();
-            return ['success' => false, 'message' => $e->getMessage()];
+        if (!$auction) {
+            throw new Exception("Auction not found");
         }
+        
+        if ($auction['status'] != 'active') {
+            throw new Exception("This auction is no longer active");
+        }
+        
+        if (strtotime($auction['end_time']) < time()) {
+            throw new Exception("Auction has already ended");
+        }
+        
+        if ($bidder_id == $auction['seller_id']) {
+            throw new Exception("You cannot bid on your own auction");
+        }
+        
+        // Calculate minimum allowed bid based on bid increment
+        $bid_increment = $auction['bid_increment'];
+        $current_price = $auction['current_price'];
+        $min_bid = $current_price + $bid_increment;
+        
+        // Check if bid meets the minimum increment requirement (must be at least current_price + increment)
+        if ($amount < $min_bid) {
+            throw new Exception("Bid must be at least $" . number_format($min_bid, 2) . " (Current price: $" . number_format($current_price, 2) . " + minimum increment: $" . number_format($bid_increment, 2) . ")");
+        }
+        
+        // Note: User can bid ANY amount ABOVE the minimum. No multiple restriction.
+        // Example: If current price is $100 and increment is $5, user can bid $105, $110, $150, $200, etc.
+        
+        // Delete user's previous bid on this auction (if exists)
+        $delete_previous_sql = "DELETE FROM bids WHERE auction_id = ? AND bidder_id = ?";
+        $stmt = $this->conn->prepare($delete_previous_sql);
+        $stmt->bind_param("ii", $auction_id, $bidder_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Insert new bid
+        $bid_sql = "INSERT INTO bids (auction_id, bidder_id, amount) VALUES (?, ?, ?)";
+        $stmt = $this->conn->prepare($bid_sql);
+        $stmt->bind_param("iid", $auction_id, $bidder_id, $amount);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Get the new highest bid for this auction
+        $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
+        $stmt = $this->conn->prepare($highest_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $highest = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        
+        $new_current_price = $highest['max_bid'] ?? $current_price;
+        
+        // Update auction current price to the highest bid
+        $update_sql = "UPDATE auctions SET current_price = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($update_sql);
+        $stmt->bind_param("di", $new_current_price, $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        $this->conn->commit();
+        return ['success' => true, 'message' => 'Bid placed successfully! Your previous bid has been replaced.'];
+        
+    } catch (Exception $e) {
+        $this->conn->rollback();
+        return ['success' => false, 'message' => $e->getMessage()];
     }
+}
     
     // Get user's auctions
     public function getUserAuctions($user_id) {
@@ -142,51 +169,58 @@ class Auction {
     }
     
     // Get user's bids with auction details for activities page
-    public function getUserBids($user_id) {
-        $sql = "SELECT b.*, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url
-                FROM bids b 
-                JOIN auctions a ON b.auction_id = a.id 
-                WHERE b.bidder_id = ? 
-                ORDER BY b.bid_time DESC";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("i", $user_id);
+    // Get user's bids with auction details for activities page (shows only latest bid per auction)
+public function getUserBids($user_id) {
+    $sql = "SELECT b1.*, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url
+            FROM bids b1
+            INNER JOIN (
+                SELECT auction_id, MAX(bid_time) as latest_bid_time
+                FROM bids
+                WHERE bidder_id = ?
+                GROUP BY auction_id
+            ) b2 ON b1.auction_id = b2.auction_id AND b1.bid_time = b2.latest_bid_time
+            JOIN auctions a ON b1.auction_id = a.id
+            WHERE b1.bidder_id = ?
+            ORDER BY b1.bid_time DESC";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $user_id, $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $bids = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    
+    // Get highest bid for each auction to determine status
+    foreach ($bids as &$bid) {
+        $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
+        $stmt = $this->conn->prepare($highest_sql);
+        $stmt->bind_param("i", $bid['auction_id']);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $bids = $result->fetch_all(MYSQLI_ASSOC);
+        $highest = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         
-        // Get highest bid for each auction to determine status
-        foreach ($bids as &$bid) {
-            $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
-            $stmt = $this->conn->prepare($highest_sql);
-            $stmt->bind_param("i", $bid['auction_id']);
-            $stmt->execute();
-            $highest = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            $highest_bid = $highest['max_bid'] ?? 0;
-            
-            if ($bid['auction_status'] == 'active') {
-                if ($bid['amount'] == $highest_bid) {
-                    $bid['bid_status'] = 'winning';
-                } else {
-                    $bid['bid_status'] = 'outbid';
-                }
-            } elseif ($bid['auction_status'] == 'payment_pending' && $bid['amount'] == $highest_bid) {
-                $bid['bid_status'] = 'won_payment';
-            } elseif ($bid['auction_status'] == 'ended') {
-                if ($bid['amount'] == $highest_bid) {
-                    $bid['bid_status'] = 'won';
-                } else {
-                    $bid['bid_status'] = 'lost';
-                }
-            } else {
-                $bid['bid_status'] = $bid['auction_status'];
-            }
-        }
+        $highest_bid = $highest['max_bid'] ?? 0;
         
-        return $bids;
+        if ($bid['auction_status'] == 'active') {
+            if ($bid['amount'] == $highest_bid) {
+                $bid['bid_status'] = 'winning';
+            } else {
+                $bid['bid_status'] = 'outbid';
+            }
+        } elseif ($bid['auction_status'] == 'payment_pending' && $bid['amount'] == $highest_bid) {
+            $bid['bid_status'] = 'won_payment';
+        } elseif ($bid['auction_status'] == 'ended') {
+            if ($bid['amount'] == $highest_bid) {
+                $bid['bid_status'] = 'won';
+            } else {
+                $bid['bid_status'] = 'lost';
+            }
+        } else {
+            $bid['bid_status'] = $bid['auction_status'];
+        }
     }
+    
+    return $bids;
+}
     
     // Delete auction
     public function deleteAuction($auction_id, $user_id): array {

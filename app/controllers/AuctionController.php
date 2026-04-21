@@ -54,6 +54,7 @@ class AuctionController {
         $category = $_POST['category'] ?? '';
         $starting_price = floatval($_POST['starting_price'] ?? 0);
         $duration_hours = intval($_POST['duration_hours'] ?? 24);
+        $bid_increment = floatval($_POST['bid_increment'] ?? 1.00);
         
         // Use server time for consistency
         $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
@@ -72,6 +73,9 @@ class AuctionController {
         }
         if ($starting_price < 1) {
             $errors[] = 'Starting price must be at least $1.00';
+        }
+        if ($bid_increment < 0.01) {
+            $errors[] = 'Bid increment must be at least $0.01';
         }
         
         if (!empty($errors)) {
@@ -112,7 +116,7 @@ class AuctionController {
         
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
-        $result = $auctionModel->create($_SESSION['user_id'], $title, $description, $category, $starting_price, $end_time, $image_url);
+        $result = $auctionModel->create($_SESSION['user_id'], $title, $description, $category, $starting_price, $end_time, $image_url, $bid_increment);
         $conn->close();
         
         if ($result['success']) {

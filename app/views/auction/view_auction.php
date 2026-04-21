@@ -48,11 +48,12 @@ ob_start();
                     <label>Your Bid (USD)</label>
                     <div class="bid-input-group">
                         <span class="currency">$</span>
-                        <input type="number" id="bid_amount" step="1.00" value="<?php echo $auction['current_price'] + 1; ?>">
+                        <input type="number" id="bid_amount" step="<?php echo $auction['bid_increment']; ?>" value="<?php echo $auction['current_price'] + $auction['bid_increment']; ?>">
                         <button onclick="placeBid()" class="btn btn-primary">Place Bid</button>
                     </div>
                     <div class="bid-info">
-                        <p>Minimum bid: <span id="minBid">$<?php echo number_format($auction['current_price'] + 1, 2); ?></span></p>
+                        <p><i class="fas fa-info-circle"></i> Minimum bid: <span id="minBid">$<?php echo number_format($auction['current_price'] + $auction['bid_increment'], 2); ?></span></p>
+                        <p><i class="fas fa-chart-line"></i> Bid increment: $<?php echo number_format($auction['bid_increment'], 2); ?></p>
                     </div>
                 </div>
                 <?php elseif ($_SESSION['user_id'] == $auction['seller_id']): ?>
@@ -78,6 +79,7 @@ ob_start();
                         <tr><th>Category</th><td><?php echo htmlspecialchars($auction['category']); ?></td></tr>
                         <tr><th>Starting Price</th><td>$<?php echo number_format($auction['starting_price'], 2); ?></td></tr>
                         <tr><th>Current Price</th><td>$<?php echo number_format($auction['current_price'], 2); ?></td></tr>
+                        <tr><th>Bid Increment</th><td>$<?php echo number_format($auction['bid_increment'], 2); ?></td></tr>
                         <tr><th>End Time</th><td><?php echo date('F j, Y g:i A', strtotime($auction['end_time'])); ?></td></tr>
                     </table>
                 </div>
@@ -104,6 +106,8 @@ ob_start();
 
 <script>
 const auctionId = <?php echo $auction['id']; ?>;
+const currentPrice = <?php echo $auction['current_price']; ?>;
+const bidIncrement = <?php echo $auction['bid_increment']; ?>;
 
 function placeBid() {
     const amount = document.getElementById('bid_amount').value;
@@ -113,11 +117,14 @@ function placeBid() {
         return;
     }
     
-    const minBid = <?php echo $auction['current_price'] + 1; ?>;
+    const minBid = currentPrice + bidIncrement;
     if (parseFloat(amount) < minBid) {
         alert('Bid must be at least $' + minBid.toFixed(2));
         return;
     }
+    
+    // REMOVED: The modulus check that required exact multiples
+    // Users can now bid any amount above the minimum
     
     // Show loading
     const btn = event.target;
@@ -191,8 +198,6 @@ function startCountdown() {
     updateCountdown();
     setInterval(updateCountdown, 1000);
 }
-
-startCountdown();
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tab => {

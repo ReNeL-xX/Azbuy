@@ -59,7 +59,7 @@ ob_start();
                 <div class="form-group">
                     <label><i class="fas fa-chart-line"></i> Bid Increment ($)</label>
                     <input type="number" name="bid_increment" step="0.01" value="1.00" placeholder="1.00">
-                    <small>Minimum bid increase amount</small>
+                    <small>Minimum bid increase amount (default: $1.00)</small>
                 </div>
                 
                 <div class="form-group">
@@ -120,6 +120,7 @@ ob_start();
                 <li><i class="fas fa-camera"></i> High-quality photos increase bids by 40%</li>
                 <li><i class="fas fa-file-alt"></i> Detailed descriptions build buyer trust</li>
                 <li><i class="fas fa-chart-line"></i> Lower starting prices attract more bidders</li>
+                <li><i class="fas fa-chart-line"></i> Bid increment determines how much each bid must increase by</li>
                 <li><i class="fas fa-calendar"></i> Weekend endings get more last-minute bids</li>
                 <li><i class="fas fa-tag"></i> Choose the right category for better visibility</li>
             </ul>
@@ -205,6 +206,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const description = document.querySelector('textarea[name="description"]').value.trim();
     const category = document.querySelector('select[name="category"]').value;
     const startingPrice = parseFloat(document.querySelector('input[name="starting_price"]').value);
+    const bidIncrement = parseFloat(document.querySelector('input[name="bid_increment"]').value);
     
     if (!title) {
         e.preventDefault();
@@ -227,6 +229,12 @@ document.querySelector('form').addEventListener('submit', function(e) {
     if (isNaN(startingPrice) || startingPrice < 1) {
         e.preventDefault();
         alert('Starting price must be at least $1.00');
+        return false;
+    }
+    
+    if (isNaN(bidIncrement) || bidIncrement < 0.01) {
+        e.preventDefault();
+        alert('Bid increment must be at least $0.01');
         return false;
     }
     
