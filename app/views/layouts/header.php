@@ -114,14 +114,25 @@ $current_action = $_GET['action'] ?? 'home';
                 <?php endif; ?>
             </ul>
             
-            <?php if (isset($_SESSION['username'])): ?>
-                <div class="user-greeting">
-                    <i class="fas fa-user-circle"></i> Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>
-                    <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true): ?>
-                        <span class="admin-badge" style="background: var(--primary-gold); color: #000; padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 8px;">Admin</span>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
+            <!-- User Greeting and Notification Bell -->
+       <?php if (isset($_SESSION['user_id'])): ?>
+    <div class="notification-bell" style="position: relative; margin-left: 1rem;">
+        <i class="fas fa-bell" onclick="toggleNotifications()" style="font-size: 1.2rem; cursor: pointer; color: var(--primary-gold);"></i>
+        <span id="notificationCount" class="notification-count" style="position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; min-width: 18px; text-align: center; display: none;">0</span>
+        
+        <div id="notificationDropdown" class="notification-dropdown" style="display: none; position: absolute; top: 35px; right: 0; width: 350px; background: var(--dark-elevated); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 1000;">
+            <div style="padding: 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; color: var(--primary-gold);">Notifications</span>
+                <button onclick="deleteAllNotifications()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;" title="Clear all notifications">
+                    <i class="fas fa-trash-alt"></i> Clear All
+                </button>
+            </div>
+            <div id="notificationList" style="max-height: 400px; overflow-y: auto;">
+                <div style="padding: 12px; text-align: center; color: var(--text-muted);">Loading...</div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
         </div>
     </nav>
     <main>

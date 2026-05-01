@@ -110,7 +110,7 @@ public function placeBid($auction_id, $bidder_id, $amount): array {
         
         // Check if bid meets the minimum increment requirement (must be at least current_price + increment)
         if ($amount < $min_bid) {
-            throw new Exception("Bid must be at least $" . number_format($min_bid, 2) . " (Current price: $" . number_format($current_price, 2) . " + minimum increment: $" . number_format($bid_increment, 2) . ")");
+throw new Exception("Bid must be at least ₱" . number_format($min_bid, 2) . " (Current price: ₱" . number_format($current_price, 2) . " + minimum increment: ₱" . number_format($bid_increment, 2) . ")");
         }
         
         // Note: User can bid ANY amount ABOVE the minimum. No multiple restriction.
@@ -148,7 +148,7 @@ public function placeBid($auction_id, $bidder_id, $amount): array {
         $stmt->close();
         
         $this->conn->commit();
-        return ['success' => true, 'message' => 'Bid placed successfully! Your previous bid has been replaced.'];
+        return ['success' => true, 'message' => 'Bid placed successfully!'];
         
     } catch (Exception $e) {
         $this->conn->rollback();
@@ -171,17 +171,17 @@ public function placeBid($auction_id, $bidder_id, $amount): array {
     // Get user's bids with auction details for activities page
     // Get user's bids with auction details for activities page (shows only latest bid per auction)
 public function getUserBids($user_id) {
-    $sql = "SELECT b1.*, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url
-            FROM bids b1
+    $sql = "SELECT b.*, a.id as auction_id, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url
+            FROM bids b 
             INNER JOIN (
                 SELECT auction_id, MAX(bid_time) as latest_bid_time
                 FROM bids
                 WHERE bidder_id = ?
                 GROUP BY auction_id
-            ) b2 ON b1.auction_id = b2.auction_id AND b1.bid_time = b2.latest_bid_time
-            JOIN auctions a ON b1.auction_id = a.id
-            WHERE b1.bidder_id = ?
-            ORDER BY b1.bid_time DESC";
+            ) b2 ON b.auction_id = b2.auction_id AND b.bid_time = b2.latest_bid_time
+            JOIN auctions a ON b.auction_id = a.id
+            WHERE b.bidder_id = ?
+            ORDER BY b.bid_time DESC";
     $stmt = $this->conn->prepare($sql);
     $stmt->bind_param("ii", $user_id, $user_id);
     $stmt->execute();
@@ -431,62 +431,126 @@ public function getUserBids($user_id) {
         }
     }
     
-    // Process payment for won auction
-    public function processPayment($auction_id, $user_id): array {
-        $this->conn->begin_transaction();
+// Process payment for won auction (simplified - no wallet check)
+public function processPayment($auction_id, $user_id): array {
+    $this->conn->begin_transaction();
+    
+    try {
+        $sql = "SELECT a.*, u.username as seller_name 
+                FROM auctions a 
+                JOIN users u ON a.seller_id = u.id 
+                WHERE a.id = ? AND a.winner_id = ? AND a.status = 'payment_pending'";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $auction_id, $user_id);
+        $stmt->execute();
+        $auction = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         
-        try {
-            $sql = "SELECT * FROM auctions WHERE id = ? AND winner_id = ? AND status = 'payment_pending' AND payment_deadline > NOW()";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param("ii", $auction_id, $user_id);
-            $stmt->execute();
-            $auction = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            if (!$auction) {
-                throw new Exception("Invalid auction or payment deadline passed");
-            }
-            
-            // Check user balance
-            $user_sql = "SELECT balance FROM users WHERE id = ? FOR UPDATE";
-            $stmt = $this->conn->prepare($user_sql);
-            $stmt->bind_param("i", $user_id);
-            $stmt->execute();
-            $user = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            if ($user['balance'] < $auction['winning_bid']) {
-                throw new Exception("Insufficient balance. Please add funds to your wallet.");
-            }
-            
-            // Deduct balance
-            $update_balance = "UPDATE users SET balance = balance - ? WHERE id = ?";
-            $stmt = $this->conn->prepare($update_balance);
-            $stmt->bind_param("di", $auction['winning_bid'], $user_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Update auction status
-            $update_auction = "UPDATE auctions SET status = 'paid' WHERE id = ?";
-            $stmt = $this->conn->prepare($update_auction);
-            $stmt->bind_param("i", $auction_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Add funds to seller
-            $update_seller = "UPDATE users SET balance = balance + ? WHERE id = ?";
-            $stmt = $this->conn->prepare($update_seller);
-            $stmt->bind_param("di", $auction['winning_bid'], $auction['seller_id']);
-            $stmt->execute();
-            $stmt->close();
-            
-            $this->conn->commit();
-            return ['success' => true, 'message' => 'Payment successful! The item is now yours.'];
-            
-        } catch (Exception $e) {
-            $this->conn->rollback();
-            return ['success' => false, 'message' => $e->getMessage()];
+        if (!$auction) {
+            throw new Exception("Invalid auction or payment already processed");
         }
+        
+        // Get buyer info
+        $buyer_sql = "SELECT username FROM users WHERE id = ?";
+        $stmt = $this->conn->prepare($buyer_sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $buyer = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        
+        // Create notification for seller
+        $notification_title = "🎉 Item Sold!";
+$notification_message = "Your item '{$auction['title']}' has been purchased by {$buyer['username']} for ₱" . number_format($auction['winning_bid'], 2) . "!";
+        $this->addNotification($auction['seller_id'], 'item_sold', $notification_title, $notification_message);
+        
+        // Create notification for buyer
+        $buyer_notification_title = "✅ Purchase Successful!";
+        $buyer_notification_message = "You have successfully purchased '{$auction['title']}' for ₱" . number_format($auction['winning_bid'], 2) . ". The seller will contact you soon.";
+        $this->addNotification($user_id, 'purchase_success', $buyer_notification_title, $buyer_notification_message);
+        
+        // Delete all bids for this auction
+        $delete_bids_sql = "DELETE FROM bids WHERE auction_id = ?";
+        $stmt = $this->conn->prepare($delete_bids_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Delete the auction
+        $delete_auction_sql = "DELETE FROM auctions WHERE id = ?";
+        $stmt = $this->conn->prepare($delete_auction_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        $this->conn->commit();
+        return ['success' => true, 'message' => 'Payment successful! The item has been purchased. The auction has been removed.'];
+        
+    } catch (Exception $e) {
+        $this->conn->rollback();
+        return ['success' => false, 'message' => $e->getMessage()];
     }
+}
+
+// Add notification method
+private function addNotification($user_id, $type, $title, $message) {
+    $sql = "INSERT INTO notifications (user_id, type, title, message, is_read, created_at) VALUES (?, ?, ?, ?, 0, NOW())";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("isss", $user_id, $type, $title, $message);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Get user notifications
+public function getNotifications($user_id, $limit = 20) {
+    $sql = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $user_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $notifications = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $notifications;
+}
+
+// Get unread notification count
+public function getUnreadNotificationCount($user_id) {
+    $sql = "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $count = $result->fetch_assoc()['count'];
+    $stmt->close();
+    return $count;
+}
+
+// Mark notification as read
+public function markNotificationRead($notification_id, $user_id) {
+    $sql = "UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $notification_id, $user_id);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
+// Delete a single notification
+public function deleteNotification($notification_id, $user_id): bool {
+    $sql = "DELETE FROM notifications WHERE id = ? AND user_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $notification_id, $user_id);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
+
+// Delete all notifications for a user
+public function deleteAllNotifications($user_id): bool {
+    $sql = "DELETE FROM notifications WHERE user_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
 }
 ?>

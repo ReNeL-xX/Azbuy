@@ -32,7 +32,7 @@ ob_start();
             <div class="bid-status-card">
                 <div class="current-bid-section">
                     <span class="label">Current Bid</span>
-                    <div class="current-bid-amount">$<?php echo number_format($auction['current_price'], 2); ?></div>
+<div class="current-bid-amount">₱<?php echo number_format($auction['current_price'], 2); ?></div>
                     <span class="bid-count"><?php echo count($bid_history); ?> bids</span>
                 </div>
                 
@@ -45,15 +45,15 @@ ob_start();
                 
                 <?php if ($_SESSION['user_id'] != $auction['seller_id'] && $auction['status'] == 'active' && strtotime($auction['end_time']) > time()): ?>
                 <div class="bid-form-section">
-                    <label>Your Bid (USD)</label>
+<label>Your Bid (PHP)</label>
                     <div class="bid-input-group">
-                        <span class="currency">$</span>
+                        <span class="currency">₱</span>
                         <input type="number" id="bid_amount" step="<?php echo $auction['bid_increment']; ?>" value="<?php echo $auction['current_price'] + $auction['bid_increment']; ?>">
                         <button onclick="placeBid()" class="btn btn-primary">Place Bid</button>
                     </div>
                     <div class="bid-info">
-                        <p><i class="fas fa-info-circle"></i> Minimum bid: <span id="minBid">$<?php echo number_format($auction['current_price'] + $auction['bid_increment'], 2); ?></span></p>
-                        <p><i class="fas fa-chart-line"></i> Bid increment: $<?php echo number_format($auction['bid_increment'], 2); ?></p>
+<p><i class="fas fa-info-circle"></i> Minimum bid: <span id="minBid">₱<?php echo number_format($auction['current_price'] + $auction['bid_increment'], 2); ?></span></p>
+                        <p><i class="fas fa-chart-line"></i> Bid increment: ₱<?php echo number_format($auction['bid_increment'], 2); ?></p>
                     </div>
                 </div>
                 <?php elseif ($_SESSION['user_id'] == $auction['seller_id']): ?>
@@ -77,9 +77,9 @@ ob_start();
                 <div id="details" class="tab-content">
                     <table class="details-table">
                         <tr><th>Category</th><td><?php echo htmlspecialchars($auction['category']); ?></td></tr>
-                        <tr><th>Starting Price</th><td>$<?php echo number_format($auction['starting_price'], 2); ?></td></tr>
-                        <tr><th>Current Price</th><td>$<?php echo number_format($auction['current_price'], 2); ?></td></tr>
-                        <tr><th>Bid Increment</th><td>$<?php echo number_format($auction['bid_increment'], 2); ?></td></tr>
+<tr><th>Starting Price</th><td>₱<?php echo number_format($auction['starting_price'], 2); ?></td></tr>
+                        <tr><th>Current Price</th><td>₱<?php echo number_format($auction['current_price'], 2); ?></td></tr>
+                        <tr><th>Bid Increment</th><td>₱<?php echo number_format($auction['bid_increment'], 2); ?></td></tr>
                         <tr><th>End Time</th><td><?php echo date('F j, Y g:i A', strtotime($auction['end_time'])); ?></td></tr>
                     </table>
                 </div>
@@ -92,7 +92,7 @@ ob_start();
                             <?php foreach ($bid_history as $bid): ?>
                                 <div class="bid-row">
                                     <span class="bidder"><?php echo htmlspecialchars($bid['username']); ?></span>
-                                    <span class="amount">$<?php echo number_format($bid['amount'], 2); ?></span>
+<span class="amount">₱<?php echo number_format($bid['amount'], 2); ?></span>
                                     <span class="time"><?php echo date('M d, H:i', strtotime($bid['bid_time'])); ?></span>
                                 </div>
                             <?php endforeach; ?>
@@ -119,7 +119,7 @@ function placeBid() {
     
     const minBid = currentPrice + bidIncrement;
     if (parseFloat(amount) < minBid) {
-        alert('Bid must be at least $' + minBid.toFixed(2));
+alert('Bid must be at least ₱' + minBid.toFixed(2));
         return;
     }
     

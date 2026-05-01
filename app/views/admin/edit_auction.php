@@ -66,7 +66,7 @@ ob_start();
                 
                 <div class="form-group">
                     <label><i class="fas fa-chart-line"></i> Starting Price</label>
-                    <input type="text" value="$<?php echo number_format($auction['starting_price'], 2); ?>" disabled>
+                    <input type="text" value="₱<?php echo number_format($auction['starting_price'], 2); ?>" disabled>
                 </div>
             </div>
             

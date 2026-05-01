@@ -49,17 +49,17 @@ ob_start();
                 </div>
                 
                 <div class="form-group">
-                    <label><i class="fas fa-dollar-sign"></i> Starting Price ($) *</label>
+<label><i class="fas fa-peso-sign"></i> Starting Price (₱) *</label>
                     <input type="number" name="starting_price" step="0.01" min="1.00" required placeholder="0.00">
-                    <small>Minimum $1.00</small>
+                    <small>Minimum ₱1.00</small>
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
-                    <label><i class="fas fa-chart-line"></i> Bid Increment ($)</label>
+<label><i class="fas fa-chart-line"></i> Bid Increment (₱)</label>
                     <input type="number" name="bid_increment" step="0.01" value="1.00" placeholder="1.00">
-                    <small>Minimum bid increase amount (default: $1.00)</small>
+                    <small>Minimum bid increase amount (default: ₱1.00)</small>
                 </div>
                 
                 <div class="form-group">
@@ -228,13 +228,13 @@ document.querySelector('form').addEventListener('submit', function(e) {
     
     if (isNaN(startingPrice) || startingPrice < 1) {
         e.preventDefault();
-        alert('Starting price must be at least $1.00');
+alert('Starting price must be at least ₱1.00');
         return false;
     }
     
     if (isNaN(bidIncrement) || bidIncrement < 0.01) {
         e.preventDefault();
-        alert('Bid increment must be at least $0.01');
+        alert('Bid increment must be at least ₱0.01');
         return false;
     }
     

@@ -37,8 +37,8 @@ ob_start();
                 <div class="member-since">
                     <i class="fas fa-calendar"></i> Member since <?php echo date('F Y', strtotime($user['created_at'])); ?>
                 </div>
-                <div class="wallet-info" style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,215,0,0.1); border-radius: 8px;">
-                    <i class="fas fa-wallet"></i> Balance: $<?php echo number_format($user['balance'] ?? 0, 2); ?>
+<div class="wallet-info" style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,215,0,0.1); border-radius: 8px;">
+                    <i class="fas fa-wallet"></i> Balance: ₱<?php echo number_format($user['balance'] ?? 0, 2); ?>
                 </div>
             </div>
             
@@ -170,9 +170,9 @@ ob_start();
             <div id="wallet" class="settings-tab">
                 <h2><i class="fas fa-wallet"></i> Wallet & Payment Methods</h2>
                 
-                <div class="wallet-balance" style="text-align: center; padding: 2rem; background: var(--dark-card); border-radius: 20px; margin-bottom: 2rem;">
+<div class="wallet-balance" style="text-align: center; padding: 2rem; background: var(--dark-card); border-radius: 20px; margin-bottom: 2rem;">
                     <span>Available Balance</span>
-                    <div class="balance-amount" style="font-size: 2.5rem; font-weight: 800; color: var(--primary-gold);">$<?php echo number_format($user['balance'] ?? 0, 2); ?></div>
+                    <div class="balance-amount" style="font-size: 2.5rem; font-weight: 800; color: var(--primary-gold);">₱<?php echo number_format($user['balance'] ?? 0, 2); ?></div>
                     <button class="btn btn-primary" onclick="addFunds()">Add Funds</button>
                 </div>
                 
@@ -212,7 +212,6 @@ ob_start();
                             <strong>Welcome Bonus</strong>
                             <div><small>Initial deposit</small></div>
                         </div>
-                        <span class="amount positive" style="color: #28A745;">+$100.00</span>
                         <span class="date" style="color: var(--text-muted);"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></span>
                     </div>
                 </div>
@@ -462,7 +461,7 @@ function revokeSession(button) {
 function addFunds() {
     const amount = prompt('Enter amount to add:', '100');
     if (amount && !isNaN(amount) && amount > 0) {
-        showToast(`$${amount} added to your wallet! (Demo mode)`);
+        showToast(`₱${amount} added to your wallet! (Demo mode)`);
     }
 }
 

@@ -83,8 +83,8 @@ ob_start();
                                 </td>
                                 <td data-label="Title"><?php echo htmlspecialchars(substr($auction['title'], 0, 40)); ?>...</td>
                                 <td data-label="Seller"><?php echo htmlspecialchars($auction['seller_name']); ?></td>
-                                <td data-label="Starting Price" class="price">$<?php echo number_format($auction['starting_price'], 2); ?></td>
-                                <td data-label="Current Price" class="price">$<?php echo number_format($auction['current_price'], 2); ?></td>
+                                <td data-label="Starting Price" class="price">₱<?php echo number_format($auction['starting_price'], 2); ?></td>
+                                <td data-label="Current Price" class="price">₱<?php echo number_format($auction['current_price'], 2); ?></td>
                                 <td data-label="Bids" class="center"><?php echo $bid_count; ?></td>
                                 <td data-label="Status">
                                     <span class="status-badge <?php echo $auction['status']; ?>">

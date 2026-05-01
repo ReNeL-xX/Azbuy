@@ -48,8 +48,8 @@ ob_start();
                         <p class="seller">by <?php echo htmlspecialchars($auction['seller_name']); ?></p>
                         <p class="category"><i class="fas fa-tag"></i> <?php echo htmlspecialchars($auction['category']); ?></p>
                         <div class="price-info">
-                            <span class="current-price">$<?php echo number_format($auction['current_price'], 2); ?></span>
-                            <span class="starting-price">Started: $<?php echo number_format($auction['starting_price'], 2); ?></span>
+                            <span class="current-price">₱<?php echo number_format($auction['current_price'], 2); ?></span>
+                            <span class="starting-price">Started: ₱<?php echo number_format($auction['starting_price'], 2); ?></span>
                         </div>
                         <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn btn-primary btn-block">View Auction</a>
                     </div>

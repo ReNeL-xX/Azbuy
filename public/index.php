@@ -175,7 +175,22 @@ switch ($action) {
     case 'update-password':
         $userController->updatePassword();
         break;
+
+     case 'get-notifications':
+        $auctionController->getNotifications();
+        break;
+
+    case 'mark-notification-read':
+        $auctionController->markNotificationRead();
+        break; 
     
+    case 'delete-notification':
+    $auctionController->deleteNotification();
+    break;
+
+    case 'delete-all-notifications':
+        $auctionController->deleteAllNotifications();
+        break;    
     default:
         require_once BASE_PATH . '/views/pages/home.php';
         break;

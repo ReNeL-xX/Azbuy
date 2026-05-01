@@ -62,7 +62,7 @@ ob_start();
                                 <td data-label="Email"><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td data-label="Full Name"><?php echo htmlspecialchars($user['full_name'] ?? '-'); ?></td>
                                 <td data-label="Phone"><?php echo htmlspecialchars($user['phone'] ?? '-'); ?></td>
-                                <td data-label="Balance" class="price">$<?php echo number_format($user['balance'], 2); ?></td>
+                                <td data-label="Balance" class="price">₱<?php echo number_format($user['balance'], 2); ?></td>
                                 <td data-label="Admin">
                                     <?php if ($user['is_admin'] == 1): ?>
                                         <span class="admin-badge">Admin</span>

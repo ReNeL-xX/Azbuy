@@ -47,7 +47,7 @@ ob_start();
         <div class="stat-card">
             <i class="fas fa-dollar-sign"></i>
             <div>
-                <h3>$<?php echo number_format($stats['total_revenue'], 2); ?></h3>
+                <h3>₱<?php echo number_format($stats['total_revenue'], 2); ?></h3>
                 <p>Total Revenue</p>
             </div>
         </div>
@@ -93,7 +93,7 @@ ob_start();
                                     <td><?php echo $auction['id']; ?></td>
                                     <td><?php echo htmlspecialchars(substr($auction['title'], 0, 30)); ?>...</td>
                                     <td><?php echo htmlspecialchars($auction['seller_name']); ?></td>
-                                    <td class="price">$<?php echo number_format($auction['current_price'], 2); ?></td>
+                                    <td class="price">₱<?php echo number_format($auction['current_price'], 2); ?></td>
                                     <td><span class="status-badge <?php echo $auction['status']; ?>"><?php echo ucfirst($auction['status']); ?></span></td>
                                     <td><?php echo date('M d, Y', strtotime($auction['created_at'])); ?></td>
                                 </tr>
@@ -123,7 +123,7 @@ ob_start();
                                     <td><?php echo $user['id']; ?></td>
                                     <td><?php echo htmlspecialchars($user['username']); ?></td>
                                     <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td class="price">$<?php echo number_format($user['balance'], 2); ?></td>
+                                    <td class="price">₱<?php echo number_format($user['balance'], 2); ?></td>
                                     <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
                                     <td><?php echo $user['is_admin'] ? '<span class="admin-badge">Yes</span>' : '<span class="user-badge">No</span>'; ?></td>
                                 </tr>

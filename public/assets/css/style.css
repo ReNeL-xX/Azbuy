@@ -2180,3 +2180,52 @@ input:checked + .slider:before {
 .time-cell {
     white-space: nowrap;
 }
+
+/* Notification Styles */
+.notification-bell {
+    position: relative;
+}
+
+.notification-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 35px;
+    right: 0;
+    width: 350px;
+    background: var(--dark-elevated);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+
+.notification-item {
+    transition: background 0.2s;
+}
+
+
+.notification-item:hover {
+    background: rgba(255, 215, 0, 0.1);
+}
+
+/* Notification delete button */
+.notification-item button {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.notification-item button:hover {
+    opacity: 1;
+}

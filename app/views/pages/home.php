@@ -1,5 +1,19 @@
 <?php 
 $page_title = "Home";
+
+// Get active auctions from database
+require_once dirname(__DIR__) . '/../models/Auction.php';
+require_once dirname(__DIR__) . '/../../config/Database.php';
+
+$database = new Database();
+$conn = $database->connect();
+$auctionModel = new Auction($conn);
+
+// Get active auctions (limit to 4 for featured section)
+$featured_auctions = $auctionModel->getAllActive(4, 0);
+
+$conn->close();
+
 ob_start();
 ?>
 
@@ -47,87 +61,54 @@ ob_start();
 
 <div class="featured-auctions">
     <h2>🔥 Featured Auctions</h2>
-    <div class="auctions-grid">
-           <div class="auction-card">
-            <div class="auction-image">
-                <img src="http://localhost/AzBuy/public/assets/img/rolex.jpg" alt="Vintage Rolex Watch">
-</xai:function_call. 
-
-<xai:function_call name="edit_file">
-<parameter name="path">c:/xampp/htdocs/AzBuy/app/views/pages/home.php
-                <div class="auction-timer">
-                    <i class="fas fa-hourglass-half"></i> <span class="countdown" data-time="86400">24h 00m 00s</span>
-                </div>
-                <div class="bid-count-badge">15 bids</div>
-            </div>
-            <div class="auction-info">
-                <h3>Vintage Rolex Watch 1989</h3>
-                <p class="category"><i class="fas fa-tag"></i> Collectibles</p>
-                <div class="price-info">
-                    <span class="current-price">$1,250.00</span>
-                    <span class="starting-price">Started: $500</span>
-                </div>
-                <a href="index.php?action=view-auction&id=1" class="btn btn-primary btn-block">Place Bid</a>
-            </div>
+    
+    <?php if (empty($featured_auctions)): ?>
+        <div class="empty-state" style="text-align: center; padding: 3rem;">
+            <i class="fas fa-gavel" style="font-size: 4rem; color: var(--primary-gold); margin-bottom: 1rem;"></i>
+            <h3>No Active Auctions</h3>
+            <p>Be the first to create an auction!</p>
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <a href="index.php?action=create-auction" class="btn btn-primary">Create Auction</a>
+            <?php else: ?>
+                <a href="index.php?action=register" class="btn btn-primary">Get Started</a>
+            <?php endif; ?>
         </div>
-
-        <div class="auction-card">
-            <div class="auction-image">
-                <img src="http://localhost/AzBuy/public/assets/img/MacBookProM3Max.jpg" alt="MacBook Pro M3 Max" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
-                <div class="auction-timer">
-                    <i class="fas fa-hourglass-half"></i> <span class="countdown" data-time="172800">48h 00m 00s</span>
+    <?php else: ?>
+        <div class="auctions-grid">
+            <?php foreach ($featured_auctions as $auction): ?>
+                <div class="auction-card">
+                    <div class="auction-image">
+                        <?php if ($auction['image_url']): ?>
+                            <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
+                        <?php else: ?>
+                            <img src="https://via.placeholder.com/300x200/1a1a1a/ffd700?text=<?php echo urlencode($auction['title']); ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>">
+                        <?php endif; ?>
+                        <div class="auction-timer">
+                            <i class="fas fa-hourglass-half"></i> 
+                            <span class="countdown" data-endtime="<?php echo $auction['end_time']; ?>"></span>
+                        </div>
+                        <div class="bid-count-badge"><?php echo $auction['bid_count']; ?> bids</div>
+                    </div>
+                    <div class="auction-info">
+                        <h3><?php echo htmlspecialchars($auction['title']); ?></h3>
+                        <p class="seller">by <?php echo htmlspecialchars($auction['seller_name']); ?></p>
+                        <p class="category"><i class="fas fa-tag"></i> <?php echo htmlspecialchars($auction['category']); ?></p>
+<div class="price-info">
+                            <span class="current-price">₱<?php echo number_format($auction['current_price'], 2); ?></span>
+                            <span class="starting-price">Started: ₱<?php echo number_format($auction['starting_price'], 2); ?></span>
+                        </div>
+                        <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn btn-primary btn-block">View Auction</a>
+                    </div>
                 </div>
-                <div class="bid-count-badge">32 bids</div>
-            </div>
-            <div class="auction-info">
-                <h3>MacBook Pro M3 Max</h3>
-                <p class="category"><i class="fas fa-tag"></i> Electronics</p>
-                <div class="price-info">
-                    <span class="current-price">$2,450.00</span>
-                    <span class="starting-price">Started: $1,800</span>
-                </div>
-                <a href="index.php?action=view-auction&id=2" class="btn btn-primary btn-block">Place Bid</a>
-            </div>
+            <?php endforeach; ?>
         </div>
-
-        <div class="auction-card">
-            <div class="auction-image">
-                <img src="http://localhost/AzBuy/public/assets/img/OriginalAbstractPainting.jpg" alt="Original Abstract Painting" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
-                <div class="auction-timer">
-                    <i class="fas fa-hourglass-half"></i> <span class="countdown" data-time="3600">1h 00m 00s</span>
-                </div>
-                <div class="bid-count-badge">8 bids</div>
+        
+        <?php if (count($featured_auctions) >= 4): ?>
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="index.php?action=dashboard" class="btn btn-secondary">View All Auctions →</a>
             </div>
-            <div class="auction-info">
-                <h3>Original Abstract Painting</h3>
-                <p class="category"><i class="fas fa-tag"></i> Art</p>
-                <div class="price-info">
-                    <span class="current-price">$3,200.00</span>
-                    <span class="starting-price">Started: $2,500</span>
-                </div>
-                <a href="index.php?action=view-auction&id=3" class="btn btn-primary btn-block">Place Bid</a>
-            </div>
-        </div>
-
-        <div class="auction-card">
-            <div class="auction-image">
-                <img src="http://localhost/AzBuy/public/assets/img/NikeAirJordan1Limited.jpg" alt="Nike Air Jordan 1 Limited" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
-                <div class="auction-timer">
-                    <i class="fas fa-hourglass-half"></i> <span class="countdown" data-time="259200">72h 00m 00s</span>
-                </div>
-                <div class="bid-count-badge">23 bids</div>
-            </div>
-            <div class="auction-info">
-                <h3>Nike Air Jordan 1 Limited</h3>
-                <p class="category"><i class="fas fa-tag"></i> Fashion</p>
-                <div class="price-info">
-                    <span class="current-price">$890.00</span>
-                    <span class="starting-price">Started: $400</span>
-                </div>
-                <a href="index.php?action=view-auction&id=4" class="btn btn-primary btn-block">Place Bid</a>
-            </div>
-        </div>
-    </div>
+        <?php endif; ?>
+    <?php endif; ?>
 </div>
 
 <div class="stats-section">
@@ -142,9 +123,9 @@ ob_start();
             <h3>5,000+</h3>
             <p>Auctions Completed</p>
         </div>
-        <div class="stat-card">
-            <i class="fas fa-dollar-sign"></i>
-            <h3>$2.5M+</h3>
+<div class="stat-card">
+            <i class="fas fa-peso-sign"></i>
+            <h3>₱2.5M+</h3>
             <p>Total Sales</p>
         </div>
         <div class="stat-card">
@@ -154,6 +135,43 @@ ob_start();
         </div>
     </div>
 </div>
+
+<script>
+// Countdown timers for featured auctions
+function initHomeCountdowns() {
+    const countdowns = document.querySelectorAll('.countdown');
+    countdowns.forEach(el => {
+        const endTimeStr = el.dataset.endtime;
+        if (!endTimeStr) return;
+        
+        const endTime = new Date(endTimeStr).getTime();
+        
+        function update() {
+            const now = new Date().getTime();
+            const distance = endTime - now;
+            
+            if (distance < 0) {
+                el.innerHTML = "Ended";
+                return;
+            }
+            
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let display = '';
+            if (days > 0) display += days + 'd ';
+            display += hours + 'h ' + minutes + 'm';
+            el.innerHTML = display;
+        }
+        
+        update();
+        setInterval(update, 60000);
+    });
+}
+
+initHomeCountdowns();
+</script>
 
 <?php
 $content = ob_get_clean();

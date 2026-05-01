@@ -83,8 +83,8 @@ ob_start();
                                 </div>
                             </td>
                             <td style="text-align: left;"><?php echo htmlspecialchars($auction['category']); ?></td>
-                            <td class="price" style="text-align: center;">$<?php echo number_format($auction['starting_price'], 2); ?></td>
-                            <td class="price" style="text-align: center;">$<?php echo number_format($auction['current_price'], 2); ?></td>
+                            <td class="price" style="text-align: center;">₱<?php echo number_format($auction['starting_price'], 2); ?></td>
+                            <td class="price" style="text-align: center;">₱<?php echo number_format($auction['current_price'], 2); ?></td>
                             <td style="text-align: center;"><?php echo $bid_count; ?> bids</td>
                             <td class="time-cell" style="text-align: center;">
                                 <?php if ($auction['status'] == 'active'): ?>
