@@ -1,0 +1,10 @@
+{
+    "name": "azbuy/auction-platform",
+    "description": "Premium Auction Platform with 2FA",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "pragmarx/google2fa-qrcode": "^2.0",
+        "bacon/bacon-qr-code": "^2.0"
+    }
+}

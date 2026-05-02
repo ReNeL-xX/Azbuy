@@ -2,6 +2,7 @@
 if (!class_exists('AuthController')) {
 
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../utils/TwoFactorAuth.php';
 
 class AuthController {
     private function connectDB(): mysqli {
@@ -12,17 +13,7 @@ class AuthController {
     
     public function showLogin() {
         if (isset($_SESSION['user_id'])) {
-            // Check if user is admin
-            $conn = $this->connectDB();
-            $userModel = new User($conn);
-            $is_admin = $userModel->isAdmin($_SESSION['user_id']);
-            $conn->close();
-            
-            if ($is_admin) {
-                header('Location: index.php?action=admin-dashboard');
-            } else {
-                header('Location: index.php?action=dashboard');
-            }
+            header('Location: index.php?action=dashboard');
             exit;
         }
         require_once __DIR__ . '/../views/auth/login.php';
@@ -54,31 +45,49 @@ class AuthController {
         $conn = $this->connectDB();
         $userModel = new User($conn);
         $result = $userModel->login($username, $password);
-        $conn->close();
         
         if ($result['success']) {
-            $_SESSION['user_id'] = $result['user']['id'];
-            $_SESSION['username'] = $result['user']['username'];
-            $_SESSION['user_email'] = $result['user']['email'];
-            $_SESSION['user_balance'] = $result['user']['balance'];
+            $userId = $result['user']['id'];
+            $twoFactorStatus = $userModel->getTwoFactorStatus($userId);
             
-            // Check if user is admin
-            $conn2 = $this->connectDB();
-            $userModel2 = new User($conn2);
-            $is_admin = $userModel2->isAdmin($result['user']['id']);
-            $conn2->close();
+            $twoFactorAuth = new TwoFactorAuth();
             
-            if ($is_admin) {
-                $_SESSION['is_admin'] = true;
-                $_SESSION['success'] = 'Welcome Admin! Redirecting to Admin Dashboard...';
-                header('Location: index.php?action=admin-dashboard');
+            if ($twoFactorStatus['enabled']) {
+                // 2FA already set up - verify code
+                $conn->close();
+                
+                // Use generateQRCodeHtml method
+                $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml(
+                    $result['user']['email'],
+                    $twoFactorStatus['secret']
+                );
+                
+                $_SESSION['2fa_pending_user_id'] = $userId;
+                $_SESSION['2fa_pending_user_data'] = $result['user'];
+                $_SESSION['2fa_qr_code'] = $qrCodeHtml;
+                $_SESSION['2fa_mode'] = 'verify';
+                
+                require_once __DIR__ . '/../views/auth/2fa_verify.php';
                 exit;
             } else {
-                $_SESSION['success'] = $result['message'];
-                header('Location: index.php?action=dashboard');
+                // First time login - need to setup 2FA
+                $conn->close();
+                
+                $secret = $twoFactorAuth->generateSecret();
+                // Use generateQRCodeHtml method
+                $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($result['user']['email'], $secret);
+                
+                $_SESSION['2fa_pending_user_id'] = $userId;
+                $_SESSION['2fa_pending_user_data'] = $result['user'];
+                $_SESSION['2fa_temp_secret'] = $secret;
+                $_SESSION['2fa_qr_code'] = $qrCodeHtml;
+                $_SESSION['2fa_mode'] = 'setup';
+                
+                require_once __DIR__ . '/../views/auth/2fa_setup_required.php';
                 exit;
             }
         } else {
+            $conn->close();
             $_SESSION['error'] = $result['message'];
             header('Location: index.php?action=login');
             exit;
@@ -98,7 +107,6 @@ class AuthController {
         $full_name = trim($_POST['full_name'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         
-        // Validation
         $errors = [];
         
         if (empty($username)) {
@@ -135,7 +143,7 @@ class AuthController {
         $conn->close();
         
         if ($result['success']) {
-            $_SESSION['success'] = $result['message'] . ' Please login.';
+            $_SESSION['success'] = $result['message'] . ' Please login to complete 2FA setup.';
             header('Location: index.php?action=login');
             exit;
         } else {
@@ -151,7 +159,118 @@ class AuthController {
         header('Location: index.php?action=home');
         exit;
     }
+    
+    public function process2FASetup() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $code = trim($_POST['code'] ?? '');
+        $userId = $_SESSION['2fa_pending_user_id'] ?? null;
+        $tempSecret = $_SESSION['2fa_temp_secret'] ?? null;
+        
+        if (!$userId || !$tempSecret) {
+            $_SESSION['error'] = 'Invalid 2FA setup. Please login again.';
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $twoFactorAuth = new TwoFactorAuth();
+        
+        if ($twoFactorAuth->verifyCode($tempSecret, $code)) {
+            $conn = $this->connectDB();
+            $userModel = new User($conn);
+            
+            // Enable 2FA for the user
+            $userModel->enableTwoFactor($userId, $tempSecret);
+            $conn->close();
+            
+            // Complete login
+            $userData = $_SESSION['2fa_pending_user_data'];
+            $_SESSION['user_id'] = $userData['id'];
+            $_SESSION['username'] = $userData['username'];
+            $_SESSION['user_email'] = $userData['email'];
+            $_SESSION['user_balance'] = $userData['balance'];
+            
+            if ($userData['is_admin']) {
+                $_SESSION['is_admin'] = true;
+            }
+            
+            // Clear 2FA session data
+            unset($_SESSION['2fa_pending_user_id']);
+            unset($_SESSION['2fa_pending_user_data']);
+            unset($_SESSION['2fa_temp_secret']);
+            unset($_SESSION['2fa_qr_code']);
+            unset($_SESSION['2fa_mode']);
+            
+            // Redirect directly to home page
+            $_SESSION['success'] = 'Welcome to AzBuy, ' . $userData['username'] . '! Your account is now secured with 2FA.';
+            header('Location: index.php?action=dashboard');
+            exit;
+        } else {
+            $_SESSION['error'] = 'Invalid verification code. Please try again.';
+            header('Location: index.php?action=login');
+            exit;
+        }
+    }
+    
+    public function process2FAVerify() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $code = trim($_POST['code'] ?? '');
+        $userId = $_SESSION['2fa_pending_user_id'] ?? null;
+        
+        if (!$userId) {
+            header('Location: index.php?action=login');
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $userModel = new User($conn);
+        $twoFactorStatus = $userModel->getTwoFactorStatus($userId);
+        
+        $twoFactorAuth = new TwoFactorAuth();
+        
+        $isValid = false;
+        
+        // Try regular 2FA code
+        if ($twoFactorAuth->verifyCode($twoFactorStatus['secret'], $code)) {
+            $isValid = true;
+        }
+        
+        $conn->close();
+        
+        if ($isValid) {
+            $userData = $_SESSION['2fa_pending_user_data'];
+            $_SESSION['user_id'] = $userData['id'];
+            $_SESSION['username'] = $userData['username'];
+            $_SESSION['user_email'] = $userData['email'];
+            $_SESSION['user_balance'] = $userData['balance'];
+            
+            if ($userData['is_admin']) {
+                $_SESSION['is_admin'] = true;
+            }
+            
+            // Clear 2FA session data
+            unset($_SESSION['2fa_pending_user_id']);
+            unset($_SESSION['2fa_pending_user_data']);
+            unset($_SESSION['2fa_qr_code']);
+            unset($_SESSION['2fa_mode']);
+            
+            // Redirect directly to home page
+            $_SESSION['success'] = 'Welcome back, ' . $userData['username'] . '!';
+            header('Location: index.php?action=dashboard');
+            exit;
+        } else {
+            $_SESSION['error'] = 'Invalid verification code. Please try again.';
+            header('Location: index.php?action=login');
+            exit;
+        }
+    }
 }
 
 } // end if class_exists check
-?>

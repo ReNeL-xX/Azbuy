@@ -165,6 +165,11 @@ ob_start();
                     </div>
                 </div>
             </div>
+
+            <!-- Add after Security tab link -->
+            <a href="index.php?action=2fa-setup" data-tab="2fa">
+                <i class="fas fa-shield-alt"></i> Two-Factor Auth
+            </a>
             
             <!-- Wallet & Payments Tab -->
             <div id="wallet" class="settings-tab">

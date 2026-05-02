@@ -148,5 +148,85 @@ class User {
         $stmt->execute();
         $stmt->close();
     }
+    // Add these methods to the User class
+
+/**
+ * Enable 2FA for a user
+ */
+public function enableTwoFactor($userId, $secret): bool {
+    $sql = "UPDATE users SET two_factor_secret = ?, two_factor_enabled = 1 WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("si", $secret, $userId);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
 }
+
+/**
+ * Disable 2FA for a user
+ */
+public function disableTwoFactor($userId): bool {
+    $sql = "UPDATE users SET two_factor_secret = NULL, two_factor_enabled = 0, two_factor_backup_codes = NULL WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $userId);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
+
+/**
+ * Save backup codes for a user
+ */
+public function saveBackupCodes($userId, array $codes): bool {
+    $codesJson = json_encode($codes);
+    $sql = "UPDATE users SET two_factor_backup_codes = ? WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("si", $codesJson, $userId);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
+
+/**
+ * Get user's 2FA status
+ */
+public function getTwoFactorStatus($userId): array {
+    $sql = "SELECT two_factor_secret, two_factor_enabled, two_factor_backup_codes FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    
+    return [
+        'enabled' => $user['two_factor_enabled'] == 1,
+        'secret' => $user['two_factor_secret'],
+        'backup_codes' => $user['two_factor_backup_codes'] ? json_decode($user['two_factor_backup_codes'], true) : []
+    ];
+}
+
+/**
+ * Verify 2FA code for login
+ */
+public function verifyTwoFactorCode($userId, $code): bool {
+    $sql = "SELECT two_factor_secret, two_factor_enabled FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    
+    if (!$user || $user['two_factor_enabled'] != 1) {
+        return false;
+    }
+    
+    $twoFactorAuth = new TwoFactorAuth();
+    return $twoFactorAuth->verifyCode($user['two_factor_secret'], $code);
+}
+
+}
+
+
 ?>
