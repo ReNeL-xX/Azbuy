@@ -38,14 +38,14 @@ ob_start();
             </div>
         </div>
         <div class="stat-card">
-            <i class="fas fa-hand-holding-usd"></i>
+            <i class="fa-solid fa-peso-sign"></i>
             <div>
                 <h3><?php echo number_format($stats['total_bids']); ?></h3>
                 <p>Total Bids</p>
             </div>
         </div>
         <div class="stat-card">
-            <i class="fas fa-dollar-sign"></i>
+            <i class="fa-solid fa-money-bill"></i>
             <div>
                 <h3>₱<?php echo number_format($stats['total_revenue'], 2); ?></h3>
                 <p>Total Revenue</p>
