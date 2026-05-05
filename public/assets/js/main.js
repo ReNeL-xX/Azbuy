@@ -151,59 +151,8 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Image upload preview
-function initImageUpload() {
-    const uploadArea = document.getElementById('imageUploadArea');
-    const fileInput = document.querySelector('input[type="file"]');
-    const preview = document.getElementById('imagePreview');
-    
-    if (!uploadArea) return;
-    
-    uploadArea.addEventListener('click', () => {
-        fileInput.click();
-    });
-    
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.style.borderColor = 'var(--primary-gold)';
-    });
-    
-    uploadArea.addEventListener('dragleave', () => {
-        uploadArea.style.borderColor = 'var(--border-color)';
-    });
-    
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadArea.style.borderColor = 'var(--border-color)';
-        const files = e.dataTransfer.files;
-        if (files.length) {
-            fileInput.files = files;
-            previewImages(files);
-        }
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-        previewImages(e.target.files);
-    });
-    
-    function previewImages(files) {
-        preview.innerHTML = '';
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                img.style.width = '80px';
-                img.style.height = '80px';
-                img.style.objectFit = 'cover';
-                img.style.borderRadius = '12px';
-                img.style.border = '1px solid var(--border-color)';
-                preview.appendChild(img);
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-}
+// REMOVED: initImageUpload function - handled inline in create_auction.php
+// This was causing the file manager to open twice
 
 // Payment method selection
 function initPaymentMethods() {
@@ -274,7 +223,7 @@ if (window.location.href.includes('view-auction')) {
 document.addEventListener('DOMContentLoaded', () => {
     initCountdowns();
     initSettingsTabs();
-    initImageUpload();
+    // initImageUpload(); // REMOVED - causing double file manager popup
     initPaymentMethods();
     initThumbnails();
     initSearchFilter();
@@ -286,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Smooth scroll for anchor links
+// Smooth scroll for anchor links (only if they exist)
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();

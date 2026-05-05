@@ -44,13 +44,7 @@ ob_start();
                 <p>Total Bids</p>
             </div>
         </div>
-        <div class="stat-card">
-            <i class="fa-solid fa-money-bill"></i>
-            <div>
-                <h3>₱<?php echo number_format($stats['total_revenue'], 2); ?></h3>
-                <p>Total Revenue</p>
-            </div>
-        </div>
+        
     </div>
     
     <div class="admin-grid">

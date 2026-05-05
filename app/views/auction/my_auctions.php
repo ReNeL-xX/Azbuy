@@ -123,17 +123,24 @@ ob_start();
                             </td>
                             <td class="actions-cell" style="text-align: center;">
                                 <div class="action-buttons">
-                                    <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn-icon view" title="View Auction">
+                                    <a href="index.php?action=view-auction&id=<?php echo $auction['id']; ?>" class="btn-icon view" title="View Auction" style="text-decoration: none;">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    
+                                    <!-- Show edit only for active auctions -->
                                     <?php if ($auction['status'] == 'active'): ?>
-                                        <a href="index.php?action=edit-auction&id=<?php echo $auction['id']; ?>" class="btn-icon edit" title="Edit Auction">
+                                        <a href="index.php?action=edit-auction&id=<?php echo $auction['id']; ?>" class="btn-icon edit" title="Edit Auction" style="text-decoration: none;">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="index.php?action=delete-auction&id=<?php echo $auction['id']; ?>" class="btn-icon delete" onclick="return confirm('Delete this auction? This action cannot be undone.')" title="Delete Auction">
+                                    <?php endif; ?>
+                                    
+                                    <!-- Show delete for active, ended, and payment_pending auctions -->
+                                    <?php if ($auction['status'] == 'active' || $auction['status'] == 'ended' || ($auction['status'] == 'payment_pending')): ?>
+                                        <a href="index.php?action=delete-auction&id=<?php echo $auction['id']; ?>" class="btn-icon delete" onclick="return confirm('Delete this auction? This action cannot be undone.')" title="Delete Auction" style="text-decoration: none;">
                                             <i class="fas fa-trash"></i>
                                         </a>
                                     <?php endif; ?>
+                                    
                                     <?php if ($auction['status'] == 'ended' && isset($auction['winner_id']) && $auction['winner_id'] == $_SESSION['user_id']): ?>
                                         <span class="winner-badge">You won!</span>
                                     <?php endif; ?>

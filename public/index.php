@@ -1,6 +1,17 @@
 <?php
 session_start();
 
+// Check for expired auction payments (runs on 10% of page loads)
+if (rand(1, 100) <= 10) {
+    require_once __DIR__ . '/../config/Database.php';
+    require_once __DIR__ . '/../app/models/Auction.php';
+    $db = new Database();
+    $conn = $db->connect();
+    $auctionModel = new Auction($conn);
+    $auctionModel->checkExpiredPayments();
+    $conn->close();
+}
+
 // Add Composer autoloader for 2FA libraries
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -207,7 +218,7 @@ switch ($action) {
         $auctionController->deleteAllNotifications();
         break;    
 
-    // 2FA Routes - Only if TwoFactorController exists
+    // 2FA Routes
     case '2fa-setup':
         if ($twoFactorController) {
             $twoFactorController->setup();
@@ -248,13 +259,16 @@ switch ($action) {
         }
         break;
 
-        // 2FA Routes
     case '2fa-setup-process':
         $authController->process2FASetup();
         break;
 
     case '2fa-verify-process':
         $authController->process2FAVerify();
+        break;
+
+    case 'show-backup-codes':
+        $authController->showBackupCodes();
         break;
 
     case '2fa-process':

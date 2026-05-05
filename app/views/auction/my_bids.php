@@ -6,6 +6,15 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Force check for expired payments on page load
+require_once dirname(__DIR__) . '/../models/Auction.php';
+require_once dirname(__DIR__) . '/../../config/Database.php';
+$db = new Database();
+$conn = $db->connect();
+$auctionModel = new Auction($conn);
+$auctionModel->checkExpiredPayments();
+$conn->close();
+
 // Make sure $my_auctions is set
 if (!isset($my_auctions)) {
     $my_auctions = [];
@@ -50,23 +59,7 @@ ob_start();
                 </span>
             </div>
         </div>
-        <div class="summary-card">
-            <i class="fas fa-peso-sign"></i>
-            <div>
-                <span class="label">Total Spent</span>
-                <span class="value">
-                    ₱<?php 
-                    $total_spent = 0;
-                    foreach ($my_bids as $bid) {
-                        if ($bid['bid_status'] == 'won' || $bid['bid_status'] == 'won_payment') {
-                            $total_spent += $bid['amount'];
-                        }
-                    }
-                    echo number_format($total_spent, 2);
-                    ?>
-                </span>
-            </div>
-        </div>
+       
         <div class="summary-card">
             <i class="fas fa-clock"></i>
             <div>
@@ -102,12 +95,26 @@ ob_start();
                         <th style="text-align: center;">Your Bid</th>
                         <th style="text-align: center;">Current Price</th>
                         <th style="text-align: center;">Status</th>
-                        <th style="text-align: center;">Time Left</th>
+                        <th style="text-align: center;">Payment Deadline</th>
                         <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($my_bids as $bid): ?>
+                        <?php
+                            $payment_time_left = 0;
+                            $payment_hours = 0;
+                            $payment_minutes = 0;
+                            $payment_seconds = 0;
+                            if ($bid['bid_status'] == 'won_payment' && isset($bid['payment_deadline']) && !empty($bid['payment_deadline'])) {
+                                $payment_time_left = strtotime($bid['payment_deadline']) - time();
+                                if ($payment_time_left > 0) {
+                                    $payment_hours = floor($payment_time_left / 3600);
+                                    $payment_minutes = floor(($payment_time_left % 3600) / 60);
+                                    $payment_seconds = $payment_time_left % 60;
+                                }
+                            }
+                            ?>
                         <tr>
                             <td class="item-cell" style="text-align: left;">
                                 <div class="item-info">
@@ -131,6 +138,9 @@ ob_start();
                                     <span class="status-badge outbid">Outbid</span>
                                 <?php elseif ($bid['bid_status'] == 'won_payment'): ?>
                                     <span class="status-badge won">Won - Payment Required</span>
+                                    <?php if ($payment_time_left > 0 && $payment_time_left <= 3600): ?>
+                                        <span class="payment-warning">⚠️</span>
+                                    <?php endif; ?>
                                 <?php elseif ($bid['bid_status'] == 'won'): ?>
                                     <span class="status-badge won">Won - Paid</span>
                                 <?php elseif ($bid['bid_status'] == 'lost'): ?>
@@ -139,28 +149,49 @@ ob_start();
                                     <span class="status-badge ended"><?php echo ucfirst($bid['auction_status']); ?></span>
                                 <?php endif; ?>
                             </td>
-                            <td class="time-cell" style="text-align: center;" data-endtime="<?php echo $bid['end_time']; ?>">
+                            <td class="time-cell" style="text-align: center;">
                                 <?php if ($bid['auction_status'] == 'active'): ?>
-                                    <span class="time-left">Loading...</span>
-                                <?php elseif ($bid['auction_status'] == 'payment_pending' && $bid['bid_status'] == 'won_payment'): ?>
-                                    <span class="time-left pending">Payment due</span>
+                                    <span class="time-left" data-endtime="<?php echo $bid['end_time']; ?>">Loading...</span>
+                                <?php elseif ($bid['bid_status'] == 'won_payment'): ?>
+                                    <?php if ($payment_time_left > 0): ?>
+                                        <div class="payment-timer <?php echo ($payment_time_left <= 3600) ? 'urgent' : ''; ?>">
+                                            <i class="fas fa-hourglass-half"></i>
+                                            <span class="payment-countdown" data-deadline="<?php echo $bid['payment_deadline']; ?>">
+                                                <?php 
+                                                if ($payment_hours > 0) {
+                                                    echo $payment_hours . 'h ';
+                                                }
+                                                echo $payment_minutes . 'm ' . $payment_seconds . 's';
+                                                ?>
+                                            </span>
+                                        </div>
+                                        <div class="payment-deadline-time">
+                                            <small>Pay by: <?php echo date('M d, H:i', strtotime($bid['payment_deadline'])); ?></small>
+                                        </div>
+                                    <?php else: ?>
+                                        <span class="time-left expired">Payment Expired</span>
+                                    <?php endif; ?>
+                                <?php elseif ($bid['auction_status'] == 'payment_pending' && $bid['bid_status'] != 'won_payment'): ?>
+                                    <span class="time-left pending">Awaiting payment from winner</span>
                                 <?php else: ?>
                                     <span class="time-left ended"><?php echo date('M d, H:i', strtotime($bid['end_time'])); ?></span>
                                 <?php endif; ?>
                             </td>
                             <td class="actions" style="text-align: center;">
-                                <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-primary">View</a>
+                                <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-primary" style="text-decoration: none;">View</a>
                                 
                                 <?php if ($bid['bid_status'] == 'outbid' && $bid['auction_status'] == 'active'): ?>
-                                    <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-success">Place Higher Bid</a>
+                                    <a href="index.php?action=view-auction&id=<?php echo $bid['auction_id']; ?>" class="btn-sm btn-success" style="text-decoration: none;">Place Higher Bid</a>
                                 <?php endif; ?>
                                 
                                 <?php if ($bid['auction_status'] == 'active'): ?>
-                                    <a href="javascript:void(0)" onclick="cancelBid(<?php echo $bid['id']; ?>, '<?php echo htmlspecialchars($bid['title']); ?>')" class="btn-sm btn-danger">Cancel Bid</a>
+                                    <a href="javascript:void(0)" onclick="cancelBid(<?php echo $bid['id']; ?>, '<?php echo htmlspecialchars($bid['title']); ?>')" class="btn-sm btn-danger" style="text-decoration: none;">Cancel Bid</a>
                                 <?php endif; ?>
                                 
-                                <?php if ($bid['bid_status'] == 'won_payment'): ?>
-                                    <button class="btn-sm btn-success pay-now-btn" data-auction-id="<?php echo $bid['auction_id']; ?>" data-amount="<?php echo $bid['amount']; ?>" data-title="<?php echo htmlspecialchars($bid['title']); ?>">Pay Now</button>
+                                <?php if ($bid['bid_status'] == 'won_payment' && $payment_time_left > 0): ?>
+                                    <button class="btn-sm btn-success pay-now-btn" data-auction-id="<?php echo $bid['auction_id']; ?>" data-amount="<?php echo $bid['amount']; ?>" data-title="<?php echo htmlspecialchars($bid['title']); ?>" style="text-decoration: none;">Pay Now</button>
+                                <?php elseif ($bid['bid_status'] == 'won_payment' && $payment_time_left <= 0): ?>
+                                    <span class="btn-sm disabled" style="background: #6c757d; color: white; cursor: not-allowed;">Payment Expired</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -181,6 +212,10 @@ ob_start();
         <div class="modal-body">
             <p>You are about to purchase: <strong id="modalItemTitle"></strong></p>
             <p>Amount: <strong class="price" id="modalBidAmount"></strong></p>
+            <div id="paymentWarning" style="display: none; background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.3); padding: 10px; border-radius: 8px; margin-top: 10px;">
+                <i class="fas fa-exclamation-triangle" style="color: #ffc107;"></i>
+                <small style="color: #ffc107;">Hurry! Less than 1 hour remaining to complete payment.</small>
+            </div>
             <p style="color: var(--text-muted); margin-top: 1rem;">Click confirm to complete your purchase. The seller will be notified immediately.</p>
         </div>
         <div class="modal-footer">
@@ -193,9 +228,7 @@ ob_start();
 <script>
 let currentAuctionId = null;
 
-// Use event delegation for Pay Now buttons
 document.addEventListener('DOMContentLoaded', function() {
-    // Add click handlers to all Pay Now buttons
     document.querySelectorAll('.pay-now-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const auctionId = this.dataset.auctionId;
@@ -206,11 +239,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             document.getElementById('modalItemTitle').innerText = title;
             document.getElementById('modalBidAmount').innerHTML = '₱' + parseFloat(amount).toFixed(2);
+            
+            const paymentTimer = this.closest('tr')?.querySelector('.payment-countdown');
+            if (paymentTimer) {
+                const timeText = paymentTimer.innerText;
+                if (timeText.includes('h') && parseInt(timeText) < 1) {
+                    document.getElementById('paymentWarning').style.display = 'block';
+                } else {
+                    document.getElementById('paymentWarning').style.display = 'none';
+                }
+            }
+            
             document.getElementById('paymentModal').style.display = 'flex';
         });
     });
     
-    // Set confirm button handler
     const confirmBtn = document.getElementById('confirmPaymentBtn');
     if (confirmBtn) {
         confirmBtn.onclick = function() {
@@ -219,13 +262,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Show loading
             const btn = this;
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             btn.disabled = true;
             
-            // Send payment request
             fetch('index.php?action=pay-auction&id=' + currentAuctionId)
                 .then(response => response.json())
                 .then(data => {
@@ -247,8 +288,8 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
     
-    // Update countdown timers
     updateCountdowns();
+    updatePaymentCountdowns();
 });
 
 function closePaymentModal() {
@@ -300,7 +341,48 @@ function updateCountdowns() {
     });
 }
 
-// Close modal when clicking outside
+function updatePaymentCountdowns() {
+    const paymentTimers = document.querySelectorAll('.payment-countdown');
+    
+    paymentTimers.forEach(timer => {
+        const deadlineStr = timer.dataset.deadline;
+        if (!deadlineStr) return;
+        
+        const deadline = new Date(deadlineStr).getTime();
+        const parentDiv = timer.parentElement;
+        
+        function update() {
+            const now = new Date().getTime();
+            const distance = deadline - now;
+            
+            if (distance < 0) {
+                timer.innerHTML = 'Expired';
+                if (parentDiv) parentDiv.classList.add('expired');
+                setTimeout(() => location.reload(), 5000);
+                return;
+            }
+            
+            const hours = Math.floor(distance / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            let display = '';
+            if (hours > 0) {
+                display = hours + 'h ';
+            }
+            display += minutes + 'm ' + seconds + 's';
+            timer.innerHTML = display;
+            
+            if (distance < 3600000) {
+                if (parentDiv) parentDiv.classList.add('urgent');
+            }
+        }
+        
+        update();
+        setInterval(update, 1000);
+    });
+}
+
 window.onclick = function(event) {
     const modal = document.getElementById('paymentModal');
     if (event.target == modal) {
@@ -310,10 +392,47 @@ window.onclick = function(event) {
 </script>
 
 <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: 'Poppins', sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+}
+
+main {
+    flex: 1 0 auto;
+    display: block;
+    width: 100%;
+}
+
+.footer {
+    flex-shrink: 0;
+    margin-top: auto;
+    width: 100%;
+}
+
 .my-items-container {
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
+    width: 100%;
 }
 
 .my-items-header {
@@ -378,7 +497,7 @@ window.onclick = function(event) {
 .items-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 800px;
+    min-width: 900px;
 }
 
 .items-table th {
@@ -396,7 +515,6 @@ window.onclick = function(event) {
     vertical-align: middle;
 }
 
-/* Remove border-bottom only from the actions column */
 .items-table td.actions {
     border-bottom: none;
 }
@@ -446,8 +564,54 @@ window.onclick = function(event) {
     color: #ffc107;
 }
 
+.time-left.expired {
+    color: #dc3545;
+    font-weight: bold;
+}
+
 .time-cell {
     white-space: nowrap;
+}
+
+.payment-timer {
+    font-size: 13px;
+    color: #28a745;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-weight: bold;
+}
+
+.payment-timer i {
+    font-size: 12px;
+}
+
+.payment-timer.urgent {
+    color: #dc3545;
+    font-weight: bold;
+    animation: pulse 1s infinite;
+}
+
+.payment-timer.expired {
+    color: #dc3545;
+}
+
+.payment-deadline-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.payment-warning {
+    margin-left: 5px;
+    animation: pulse 1s infinite;
+    display: inline-block;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 .status-badge {
@@ -495,7 +659,6 @@ window.onclick = function(event) {
     justify-content: center;
 }
 
-/* Button styles */
 .btn-sm {
     display: inline-block;
     padding: 6px 12px;
@@ -526,12 +689,17 @@ window.onclick = function(event) {
     text-decoration: none !important;
 }
 
-.btn-sm:hover {
+.btn-sm.disabled {
+    background: #6c757d;
+    color: white;
+    cursor: not-allowed;
+}
+
+.btn-sm:hover:not(.disabled) {
     transform: translateY(-2px);
     text-decoration: none !important;
 }
 
-/* Remove underline from all links in actions */
 .actions a {
     text-decoration: none !important;
 }
@@ -563,7 +731,6 @@ window.onclick = function(event) {
     margin-bottom: 1.5rem;
 }
 
-/* Payment Modal */
 .payment-modal {
     position: fixed;
     top: 0;
@@ -622,7 +789,19 @@ window.onclick = function(event) {
     gap: 1rem;
 }
 
-/* Responsive */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--dark-card);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-gold);
+    border-radius: 5px;
+}
+
 @media (max-width: 768px) {
     .my-items-container {
         padding: 1rem;

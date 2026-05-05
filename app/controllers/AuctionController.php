@@ -20,7 +20,7 @@ class AuctionController {
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
         
-        // Check for ended auctions
+        // Check for ended auctions (this also calls checkExpiredPayments)
         $auctionModel->checkEndedAuctions();
         
         // Get active auctions
@@ -56,11 +56,9 @@ class AuctionController {
         $duration_hours = intval($_POST['duration_hours'] ?? 24);
         $bid_increment = floatval($_POST['bid_increment'] ?? 1.00);
         
-        // Use server time for consistency
         $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
         $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
         
-        // Validation
         $errors = [];
         if (empty($title)) {
             $errors[] = 'Title is required';
@@ -72,10 +70,10 @@ class AuctionController {
             $errors[] = 'Category is required';
         }
         if ($starting_price < 1) {
-$errors[] = 'Starting price must be at least ₱1.00';
+            $errors[] = 'Starting price must be at least ₱1.00';
         }
         if ($bid_increment < 0.01) {
-$errors[] = 'Bid increment must be at least ₱0.01';
+            $errors[] = 'Bid increment must be at least ₱0.01';
         }
         
         if (!empty($errors)) {
@@ -84,7 +82,6 @@ $errors[] = 'Bid increment must be at least ₱0.01';
             exit;
         }
         
-        // Handle image upload
         $image_url = null;
         if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
             $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -137,7 +134,6 @@ $errors[] = 'Bid increment must be at least ₱0.01';
         $auctionModel = new Auction($conn);
         $auction = $auctionModel->getAuctionById($id);
         
-        // Get bid history
         $bid_sql = "SELECT b.*, u.username FROM bids b JOIN users u ON b.bidder_id = u.id WHERE b.auction_id = ? ORDER BY b.amount DESC LIMIT 20";
         $stmt = $conn->prepare($bid_sql);
         $stmt->bind_param("i", $id);
@@ -232,6 +228,10 @@ $errors[] = 'Bid increment must be at least ₱0.01';
         
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
+        
+        // Force check for expired payments
+        $auctionModel->checkExpiredPayments();
+        
         $my_bids = $auctionModel->getUserBids($_SESSION['user_id']);
         $my_auctions = $auctionModel->getUserAuctions($_SESSION['user_id']);
         $conn->close();
@@ -239,30 +239,30 @@ $errors[] = 'Bid increment must be at least ₱0.01';
         require_once __DIR__ . '/../views/auction/my_bids.php';
     }
     
-   public function payForAuction() {
-    if (!isset($_SESSION['user_id'])) {
+    public function payForAuction() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login to pay']);
+            exit;
+        }
+        
+        $auction_id = $_GET['id'] ?? 0;
+        
+        if ($auction_id <= 0) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Invalid auction ID']);
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->processPayment($auction_id, $_SESSION['user_id']);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login to pay']);
+        echo json_encode($result);
         exit;
     }
-    
-    $auction_id = $_GET['id'] ?? 0;
-    
-    if ($auction_id <= 0) {
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Invalid auction ID']);
-        exit;
-    }
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $result = $auctionModel->processPayment($auction_id, $_SESSION['user_id']);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode($result);
-    exit;
-}
     
     public function cancelBid() {
         if (!isset($_SESSION['user_id'])) {
@@ -355,11 +355,9 @@ $errors[] = 'Bid increment must be at least ₱0.01';
         $category = $_POST['category'] ?? '';
         $duration_hours = intval($_POST['duration_hours'] ?? 24);
         
-        // Calculate new end time
         $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
         $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
         
-        // Validation
         $errors = [];
         if (empty($title)) {
             $errors[] = 'Title is required';
@@ -377,7 +375,6 @@ $errors[] = 'Bid increment must be at least ₱0.01';
             exit;
         }
         
-        // Handle image upload
         $image_url = null;
         $keep_image = isset($_POST['keep_image']) ? true : false;
         
@@ -416,88 +413,86 @@ $errors[] = 'Bid increment must be at least ₱0.01';
     }
 
     public function getNotifications() {
-    if (!isset($_SESSION['user_id'])) {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login']);
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $notifications = $auctionModel->getNotifications($_SESSION['user_id']);
+        $unread_count = $auctionModel->getUnreadNotificationCount($_SESSION['user_id']);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login']);
+        echo json_encode([
+            'success' => true,
+            'notifications' => $notifications,
+            'unread_count' => $unread_count
+        ]);
         exit;
     }
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $notifications = $auctionModel->getNotifications($_SESSION['user_id']);
-    $unread_count = $auctionModel->getUnreadNotificationCount($_SESSION['user_id']);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => true,
-        'notifications' => $notifications,
-        'unread_count' => $unread_count
-    ]);
-    exit;
-}
 
-public function markNotificationRead() {
-    if (!isset($_SESSION['user_id'])) {
+    public function markNotificationRead() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login']);
+            exit;
+        }
+        
+        $notification_id = $_POST['notification_id'] ?? 0;
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->markNotificationRead($notification_id, $_SESSION['user_id']);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login']);
+        echo json_encode(['success' => $result]);
         exit;
     }
-    
-    $notification_id = $_POST['notification_id'] ?? 0;
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $result = $auctionModel->markNotificationRead($notification_id, $_SESSION['user_id']);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode(['success' => $result]);
-    exit;
-}
 
-public function deleteNotification() {
-    if (!isset($_SESSION['user_id'])) {
+    public function deleteNotification() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login']);
+            exit;
+        }
+        
+        $notification_id = $_POST['notification_id'] ?? 0;
+        
+        if ($notification_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid notification ID']);
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->deleteNotification($notification_id, $_SESSION['user_id']);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login']);
+        echo json_encode(['success' => $result]);
         exit;
     }
-    
-    $notification_id = $_POST['notification_id'] ?? 0;
-    
-    if ($notification_id <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Invalid notification ID']);
-        exit;
-    }
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $result = $auctionModel->deleteNotification($notification_id, $_SESSION['user_id']);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode(['success' => $result]);
-    exit;
-}
 
-public function deleteAllNotifications() {
-    if (!isset($_SESSION['user_id'])) {
+    public function deleteAllNotifications() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Please login']);
+            exit;
+        }
+        
+        $conn = $this->connectDB();
+        $auctionModel = new Auction($conn);
+        $result = $auctionModel->deleteAllNotifications($_SESSION['user_id']);
+        $conn->close();
+        
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Please login']);
+        echo json_encode(['success' => $result]);
         exit;
     }
-    
-    $conn = $this->connectDB();
-    $auctionModel = new Auction($conn);
-    $result = $auctionModel->deleteAllNotifications($_SESSION['user_id']);
-    $conn->close();
-    
-    header('Content-Type: application/json');
-    echo json_encode(['success' => $result]);
-    exit;
-}
-
 }
 
 } // end if class_exists check
-?>

@@ -17,7 +17,7 @@ ob_start();
             <p>List your item for the world to bid on</p>
         </div>
         
-        <form action="index.php?action=create-auction-process" method="POST" enctype="multipart/form-data">
+        <form action="index.php?action=create-auction-process" method="POST" enctype="multipart/form-data" id="createAuctionForm">
             <div class="form-group">
                 <label><i class="fas fa-heading"></i> Auction Title *</label>
                 <input type="text" name="title" required placeholder="e.g., Vintage Rolex Watch 1989">
@@ -49,7 +49,7 @@ ob_start();
                 </div>
                 
                 <div class="form-group">
-<label><i class="fas fa-peso-sign"></i> Starting Price (₱) *</label>
+                    <label><i class="fas fa-peso-sign"></i> Starting Price (₱) *</label>
                     <input type="number" name="starting_price" step="0.01" min="1.00" required placeholder="0.00">
                     <small>Minimum ₱1.00</small>
                 </div>
@@ -57,7 +57,7 @@ ob_start();
             
             <div class="form-row">
                 <div class="form-group">
-<label><i class="fas fa-chart-line"></i> Bid Increment (₱)</label>
+                    <label><i class="fas fa-chart-line"></i> Bid Increment (₱)</label>
                     <input type="number" name="bid_increment" step="0.01" value="1.00" placeholder="1.00">
                     <small>Minimum bid increase amount (default: ₱1.00)</small>
                 </div>
@@ -79,12 +79,11 @@ ob_start();
                 <label><i class="fas fa-image"></i> Item Image</label>
                 <div class="image-upload-area" id="imageUploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
-                    <p>Drag & drop image here or click to browse</p>
-                    <input type="file" name="image" id="imageInput" accept="image/*" style="display: none;">
-                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('imageInput').click()">Select Image</button>
+                    <p>Click to browse or drag & drop image</p>
+                    <small>Upload JPG, PNG, GIF - Max 5MB</small>
                 </div>
+                <input type="file" name="image" id="imageInput" accept="image/*" style="display: none;">
                 <div class="image-preview" id="imagePreview"></div>
-                <small>Upload an image for your item (JPG, PNG, GIF - Max 5MB)</small>
             </div>
             
             <div class="form-group">
@@ -129,79 +128,121 @@ ob_start();
 </div>
 
 <script>
-// Image upload preview
+// Get elements
+const imageUploadArea = document.getElementById('imageUploadArea');
 const imageInput = document.getElementById('imageInput');
 const imagePreview = document.getElementById('imagePreview');
-const uploadArea = document.getElementById('imageUploadArea');
+const form = document.getElementById('createAuctionForm');
 
-// Click to upload
-uploadArea.addEventListener('click', () => {
+// Use a flag to prevent multiple triggers
+let isOpening = false;
+
+// Handle click on upload area - triggers file input ONLY ONCE
+imageUploadArea.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevent multiple triggers
+    if (isOpening) return;
+    isOpening = true;
+    
+    // Trigger file input
     imageInput.click();
+    
+    // Reset flag after a short delay
+    setTimeout(() => {
+        isOpening = false;
+    }, 500);
 });
 
-// Drag and drop
-uploadArea.addEventListener('dragover', (e) => {
+// Handle file selection
+imageInput.addEventListener('change', function(e) {
+    // Reset the flag
+    isOpening = false;
+    
+    const file = this.files[0];
+    if (file) {
+        // Clear any existing preview first
+        imagePreview.innerHTML = '';
+        previewImage(file);
+    }
+});
+
+// Drag and drop handlers
+imageUploadArea.addEventListener('dragover', function(e) {
     e.preventDefault();
-    uploadArea.style.borderColor = 'var(--primary-gold)';
-    uploadArea.style.background = 'rgba(255, 215, 0, 0.05)';
+    e.stopPropagation();
+    this.style.borderColor = 'var(--primary-gold)';
+    this.style.background = 'rgba(255, 215, 0, 0.05)';
 });
 
-uploadArea.addEventListener('dragleave', () => {
-    uploadArea.style.borderColor = 'var(--border-color)';
-    uploadArea.style.background = 'transparent';
-});
-
-uploadArea.addEventListener('drop', (e) => {
+imageUploadArea.addEventListener('dragleave', function(e) {
     e.preventDefault();
-    uploadArea.style.borderColor = 'var(--border-color)';
-    uploadArea.style.background = 'transparent';
+    e.stopPropagation();
+    this.style.borderColor = 'var(--border-color)';
+    this.style.background = 'transparent';
+});
+
+imageUploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.style.borderColor = 'var(--border-color)';
+    this.style.background = 'transparent';
     
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-        previewImage(file);
+        // Clear existing preview
+        imagePreview.innerHTML = '';
         imageInput.files = e.dataTransfer.files;
+        previewImage(file);
     } else {
         alert('Please drop an image file');
     }
 });
 
-// File input change
-imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        previewImage(file);
-    }
-});
-
+// Preview image function
 function previewImage(file) {
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
         alert('Image size must be less than 5MB');
-        imageInput.value = '';
+        resetImageInput();
+        return;
+    }
+    
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        resetImageInput();
         return;
     }
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = function(e) {
         imagePreview.innerHTML = `
-            <div style="position: relative; display: inline-block;">
+            <div style="position: relative; display: inline-block; margin-top: 1rem;">
                 <img src="${e.target.result}" alt="Preview" style="width: 150px; height: 150px; object-fit: cover; border-radius: 12px; border: 2px solid var(--primary-gold);">
-                <button type="button" onclick="removeImage()" style="position: absolute; top: -10px; right: -10px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px;">×</button>
+                <button type="button" onclick="removeImage()" style="position: absolute; top: -10px; right: -10px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">×</button>
             </div>
         `;
-        uploadArea.style.display = 'none';
+        imageUploadArea.style.display = 'none';
     };
     reader.readAsDataURL(file);
 }
 
-function removeImage() {
-    imagePreview.innerHTML = '';
+// Reset image input
+function resetImageInput() {
     imageInput.value = '';
-    uploadArea.style.display = 'flex';
+    imagePreview.innerHTML = '';
+    imageUploadArea.style.display = 'flex';
 }
 
+// Remove image function
+window.removeImage = function() {
+    resetImageInput();
+};
+
 // Form validation
-document.querySelector('form').addEventListener('submit', function(e) {
+form.addEventListener('submit', function(e) {
     const title = document.querySelector('input[name="title"]').value.trim();
     const description = document.querySelector('textarea[name="description"]').value.trim();
     const category = document.querySelector('select[name="category"]').value;
@@ -228,7 +269,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     
     if (isNaN(startingPrice) || startingPrice < 1) {
         e.preventDefault();
-alert('Starting price must be at least ₱1.00');
+        alert('Starting price must be at least ₱1.00');
         return false;
     }
     
@@ -249,6 +290,106 @@ alert('Starting price must be at least ₱1.00');
 </script>
 
 <style>
+.form-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.form-card {
+    background: var(--dark-elevated);
+    border-radius: 24px;
+    padding: 2rem;
+    max-width: 800px;
+    width: 100%;
+    border: 1px solid var(--border-color);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.form-header i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.form-header h2 {
+    color: var(--primary-gold);
+    margin-bottom: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group label i {
+    color: var(--primary-gold);
+    margin-right: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: var(--transition);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 1rem 0;
+}
+
+.form-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-gold);
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
 .image-upload-area {
     border: 2px dashed var(--border-color);
     border-radius: 16px;
@@ -270,9 +411,26 @@ alert('Starting price must be at least ₱1.00');
     margin-bottom: 0.5rem;
 }
 
+.image-upload-area p {
+    margin-bottom: 0.5rem;
+}
+
 .image-preview {
     margin-top: 1rem;
     text-align: center;
+}
+
+.form-info {
+    margin-top: 2rem;
+    padding: 1.2rem;
+    background: var(--dark-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.form-info h4 {
+    color: var(--primary-gold);
+    margin-bottom: 0.5rem;
 }
 
 .form-info ul {
@@ -290,6 +448,59 @@ alert('Starting price must be at least ₱1.00');
 .form-info ul li i {
     color: var(--primary-gold);
     width: 25px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    color: #000;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary-gold);
+    border: 1px solid var(--primary-gold);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 215, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 1rem;
+    }
+    
+    .form-card {
+        padding: 1.5rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
 }
 </style>
 
