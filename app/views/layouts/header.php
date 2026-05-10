@@ -4,6 +4,19 @@ $base_url = '/AzBuy/public';
 
 // Get current action to highlight active nav
 $current_action = $_GET['action'] ?? 'home';
+
+// Get user profile picture if logged in
+$profile_pic = null;
+if (isset($_SESSION['user_id'])) {
+    // Fix the path - from app/views/layouts/ to root, then to config
+    require_once __DIR__ . '/../../../config/Database.php';
+    require_once __DIR__ . '/../../../app/models/User.php';
+    $db = new Database();
+    $conn = $db->connect();
+    $userModel = new User($conn);
+    $profile_pic = $userModel->getProfilePicture($_SESSION['user_id']);
+    $conn->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,6 +27,143 @@ $current_action = $_GET['action'] ?? 'home';
     <link rel="stylesheet" href="<?php echo $base_url; ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Icon styles with hover effects */
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .settings-icon, .logout-icon {
+            position: relative;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary) !important;
+        }
+        
+        .settings-icon i, .logout-icon i {
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            color: var(--text-secondary) !important;
+        }
+        
+        .settings-icon:hover i, .logout-icon:hover i {
+            color: var(--primary-gold) !important;
+            transform: translateY(-2px);
+        }
+        
+        /* Active state for settings */
+        .settings-icon.active i {
+            color: var(--primary-gold) !important;
+        }
+        
+        /* Profile Picture */
+        .profile-avatar-header {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        
+        .profile-avatar-header:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-gold);
+        }
+        
+        .profile-avatar-header i {
+            font-size: 1.2rem;
+            color: #000;
+        }
+        
+        .profile-avatar-header img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Notification bell styles */
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-secondary) !important;
+        }
+        
+        .notification-bell i {
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            color: var(--text-secondary) !important;
+        }
+        
+        .notification-bell:hover i {
+            color: var(--primary-gold) !important;
+            transform: translateY(-2px);
+        }
+        
+        .notification-bell.active i {
+            color: var(--primary-gold) !important;
+        }
+        
+        /* Underline effect on hover */
+        .settings-icon::after, .logout-icon::after, .notification-bell::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .settings-icon:hover::after, .logout-icon:hover::after, .notification-bell:hover::after {
+            width: 80%;
+        }
+        
+        .settings-icon.active::after, .logout-icon.active::after, .notification-bell.active::after {
+            width: 80%;
+        }
+        
+        /* Notification dropdown */
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            top: 35px;
+            right: 0;
+            width: 350px;
+            background: var(--dark-elevated);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        
+        .notification-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            min-width: 18px;
+            text-align: center;
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -67,11 +217,11 @@ $current_action = $_GET['action'] ?? 'home';
                         </a>
                     </li>
                     
-                    <!-- Settings Link -->
+                    <!-- Wallet Link -->
                     <li>
-                        <a href="<?php echo $base_url; ?>/index.php?action=settings" 
-                           class="<?php echo $current_action == 'settings' ? 'active' : ''; ?>">
-                            <i class="fas fa-cog"></i> Settings
+                        <a href="<?php echo $base_url; ?>/index.php?action=wallet" 
+                           class="<?php echo $current_action == 'wallet' ? 'active' : ''; ?>">
+                            <i class="fas fa-wallet"></i> Wallet
                         </a>
                     </li>
                     
@@ -84,14 +234,6 @@ $current_action = $_GET['action'] ?? 'home';
                             </a>
                         </li>
                     <?php endif; ?>
-                    
-                    <!-- Logout Link -->
-                    <li>
-                        <a href="javascript:void(0)" 
-                           onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
-                    </li>
                     
                 <?php else: ?>
                     <!-- Show these when user is LOGGED OUT -->
@@ -114,25 +256,47 @@ $current_action = $_GET['action'] ?? 'home';
                 <?php endif; ?>
             </ul>
             
-            <!-- User Greeting and Notification Bell -->
-       <?php if (isset($_SESSION['user_id'])): ?>
-    <div class="notification-bell" style="position: relative; margin-left: 1rem;">
-        <i class="fas fa-bell" onclick="toggleNotifications()" style="font-size: 1.2rem; cursor: pointer; color: var(--primary-gold);"></i>
-        <span id="notificationCount" class="notification-count" style="position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; min-width: 18px; text-align: center; display: none;">0</span>
-        
-        <div id="notificationDropdown" class="notification-dropdown" style="display: none; position: absolute; top: 35px; right: 0; width: 350px; background: var(--dark-elevated); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 1000;">
-            <div style="padding: 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: bold; color: var(--primary-gold);">Notifications</span>
-                <button onclick="deleteAllNotifications()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;" title="Clear all notifications">
-                    <i class="fas fa-trash-alt"></i> Clear All
-                </button>
-            </div>
-            <div id="notificationList" style="max-height: 400px; overflow-y: auto;">
-                <div style="padding: 12px; text-align: center; color: var(--text-muted);">Loading...</div>
-            </div>
-        </div>
-    </div>
-<?php endif; ?>
+            <!-- User Actions Icons (Profile, Settings, Logout, Notification) -->
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <div class="user-actions">
+                    <!-- Profile Picture -->
+                    <div class="profile-avatar-header">
+                        <?php if ($profile_pic): ?>
+                            <img src="/AzBuy/public/<?php echo $profile_pic; ?>" alt="Profile">
+                        <?php else: ?>
+                            <i class="fas fa-user-circle"></i>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <!-- Settings Icon -->
+                    <a href="<?php echo $base_url; ?>/index.php?action=settings" class="settings-icon <?php echo $current_action == 'settings' ? 'active' : ''; ?>" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                    
+                    <!-- Logout Icon -->
+                    <a href="javascript:void(0)" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'" class="logout-icon" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                    
+                    <!-- Notification Bell -->
+                    <div class="notification-bell" onclick="toggleNotifications()">
+                        <i class="fas fa-bell"></i>
+                        <span id="notificationCount" class="notification-count">0</span>
+                        
+                        <div id="notificationDropdown" class="notification-dropdown">
+                            <div style="padding: 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: bold; color: var(--primary-gold);">Notifications</span>
+                                <button onclick="deleteAllNotifications()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;" title="Clear all notifications">
+                                    <i class="fas fa-trash-alt"></i> Clear All
+                                </button>
+                            </div>
+                            <div id="notificationList" style="max-height: 400px; overflow-y: auto;">
+                                <div style="padding: 12px; text-align: center; color: var(--text-muted);">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </nav>
     <main>

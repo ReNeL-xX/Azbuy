@@ -274,7 +274,19 @@ switch ($action) {
     case '2fa-process':
         $authController->verify2FA();
         break;    
+    
+    case 'wallet':
+        $userController->showWallet();
+        break;    
+   
+    case 'add-funds':
+        $userController->addFunds();
+        break;    
 
+    case 'upload-profile-pic':
+        $userController->uploadProfilePicture();
+        break;       
+        
     default:
         require_once BASE_PATH . '/views/pages/home.php';
         break;

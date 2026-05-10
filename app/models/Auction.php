@@ -470,77 +470,110 @@ public function checkExpiredPayments() {
     }
 }
     
-    // Process payment for won auction
-    public function processPayment($auction_id, $user_id): array {
-        $this->conn->begin_transaction();
+// Process payment for won auction
+// Process payment for won auction
+public function processPayment($auction_id, $user_id): array {
+    $this->conn->begin_transaction();
+    
+    try {
+        $sql = "SELECT a.*, u.username as seller_name, a.payment_deadline 
+                FROM auctions a 
+                JOIN users u ON a.seller_id = u.id 
+                WHERE a.id = ? AND a.winner_id = ? AND a.status = 'payment_pending' AND a.payment_status = 'pending'";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ii", $auction_id, $user_id);
+        $stmt->execute();
+        $auction = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         
-        try {
-            $sql = "SELECT a.*, u.username as seller_name, a.payment_deadline 
-                    FROM auctions a 
-                    JOIN users u ON a.seller_id = u.id 
-                    WHERE a.id = ? AND a.winner_id = ? AND a.status = 'payment_pending' AND a.payment_status = 'pending'";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->bind_param("ii", $auction_id, $user_id);
-            $stmt->execute();
-            $auction = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            if (!$auction) {
-                throw new Exception("Invalid auction or payment already processed or expired");
-            }
-            
-            // Check if payment deadline has passed
-            if (strtotime($auction['payment_deadline']) < time()) {
-                throw new Exception("Payment deadline has expired. You can no longer pay for this item.");
-            }
-            
-            // Get buyer info
-            $buyer_sql = "SELECT username FROM users WHERE id = ?";
-            $stmt = $this->conn->prepare($buyer_sql);
-            $stmt->bind_param("i", $user_id);
-            $stmt->execute();
-            $buyer = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            // Mark as paid
-            $update_sql = "UPDATE auctions SET payment_status = 'paid', status = 'paid' WHERE id = ?";
-            $stmt = $this->conn->prepare($update_sql);
-            $stmt->bind_param("i", $auction_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Create notification for seller
-            $notification_title = "🎉 Item Sold!";
-            $notification_message = "Your item '{$auction['title']}' has been purchased by {$buyer['username']} for ₱" . number_format($auction['winning_bid'], 2) . "!";
-            $this->addNotification($auction['seller_id'], 'item_sold', $notification_title, $notification_message);
-            
-            // Create notification for buyer
-            $buyer_notification_title = "✅ Purchase Successful!";
-            $buyer_notification_message = "You have successfully purchased '{$auction['title']}' for ₱" . number_format($auction['winning_bid'], 2) . ". The seller will contact you soon.";
-            $this->addNotification($user_id, 'purchase_success', $buyer_notification_title, $buyer_notification_message);
-            
-            // Delete all bids for this auction
-            $delete_bids_sql = "DELETE FROM bids WHERE auction_id = ?";
-            $stmt = $this->conn->prepare($delete_bids_sql);
-            $stmt->bind_param("i", $auction_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            // Delete the auction
-            $delete_auction_sql = "DELETE FROM auctions WHERE id = ?";
-            $stmt = $this->conn->prepare($delete_auction_sql);
-            $stmt->bind_param("i", $auction_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            $this->conn->commit();
-            return ['success' => true, 'message' => 'Payment successful! The item has been purchased.'];
-            
-        } catch (Exception $e) {
-            $this->conn->rollback();
-            return ['success' => false, 'message' => $e->getMessage()];
+        if (!$auction) {
+            throw new Exception("Invalid auction or payment already processed or expired");
         }
+        
+        if (strtotime($auction['payment_deadline']) < time()) {
+            throw new Exception("Payment deadline has expired. You can no longer pay for this item.");
+        }
+        
+        $buyer_sql = "SELECT username, balance FROM users WHERE id = ?";
+        $stmt = $this->conn->prepare($buyer_sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $buyer = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        
+        $amount_to_pay = $auction['winning_bid'];
+        
+        // CHECK IF BUYER HAS SUFFICIENT BALANCE
+        if ($buyer['balance'] < $amount_to_pay) {
+            throw new Exception("Insufficient balance. Please add funds to your wallet. Your balance: ₱" . number_format($buyer['balance'], 2) . " | Required: ₱" . number_format($amount_to_pay, 2));
+        }
+        
+        $userModel = new User($this->conn);
+        
+        // 1. DEDUCT MONEY FROM BUYER'S WALLET (Debit)
+        $buyer_description = "Purchase of '{$auction['title']}'";
+        $userModel->deductBalance(
+            $user_id, 
+            $amount_to_pay, 
+            $buyer_description, 
+            $auction_id, 
+            'auction_purchase'
+        );
+        
+        // 2. ADD MONEY TO SELLER'S WALLET (Credit)
+        $seller_description = "Sale of '{$auction['title']}' to {$buyer['username']}";
+        $userModel->addBalance(
+            $auction['seller_id'], 
+            $amount_to_pay, 
+            $seller_description, 
+            $auction_id, 
+            'auction_sale'
+        );
+        
+        // Update auction status
+        $update_sql = "UPDATE auctions SET payment_status = 'paid', status = 'paid' WHERE id = ?";
+        $stmt = $this->conn->prepare($update_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Notification for seller
+        $notification_title = "🎉 Item Sold! ₱" . number_format($amount_to_pay, 2) . " added to your wallet!";
+        $notification_message = "Your item '{$auction['title']}' has been purchased by {$buyer['username']} for ₱" . number_format($amount_to_pay, 2) . "!";
+        $this->addNotification($auction['seller_id'], 'item_sold', $notification_title, $notification_message);
+        
+        // Notification for buyer
+        $buyer_notification_title = "✅ Purchase Successful!";
+        $buyer_notification_message = "You have successfully purchased '{$auction['title']}' for ₱" . number_format($amount_to_pay, 2) . ". Amount deducted from your wallet.";
+        $this->addNotification($user_id, 'purchase_success', $buyer_notification_title, $buyer_notification_message);
+        
+        // Delete all bids for this auction
+        $delete_bids_sql = "DELETE FROM bids WHERE auction_id = ?";
+        $stmt = $this->conn->prepare($delete_bids_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Delete the auction
+        $delete_auction_sql = "DELETE FROM auctions WHERE id = ?";
+        $stmt = $this->conn->prepare($delete_auction_sql);
+        $stmt->bind_param("i", $auction_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        $this->conn->commit();
+        
+        // Update session balance
+        $new_balance = $userModel->getBalance($user_id);
+        $_SESSION['user_balance'] = $new_balance;
+        
+        return ['success' => true, 'message' => 'Payment successful!'];
+        
+    } catch (Exception $e) {
+        $this->conn->rollback();
+        return ['success' => false, 'message' => $e->getMessage()];
     }
+}
     
     // Add notification
     private function addNotification($user_id, $type, $title, $message) {

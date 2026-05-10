@@ -63,9 +63,9 @@ class User {
         return ['success' => false, 'message' => 'Invalid username/email or password'];
     }
     
-    // Get user by ID
+        // Get user by ID
     public function getUserById($id): ?array {
-        $sql = "SELECT id, username, email, full_name, phone, address, profile_pic, balance, created_at, is_admin 
+        $sql = "SELECT id, username, email, full_name, phone, address, bio, profile_pic, balance, created_at, is_admin 
                 FROM users WHERE id = ?";
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("i", $id);
@@ -76,11 +76,12 @@ class User {
         return $user;
     }
     
+   
     // Update user profile
-    public function updateProfile($id, $full_name, $phone, $address): bool {
-        $sql = "UPDATE users SET full_name = ?, phone = ?, address = ? WHERE id = ?";
+    public function updateProfile($id, $full_name, $phone, $address, $bio = null): bool {
+        $sql = "UPDATE users SET full_name = ?, phone = ?, address = ?, bio = ? WHERE id = ?";
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("sssi", $full_name, $phone, $address, $id);
+        $stmt->bind_param("ssssi", $full_name, $phone, $address, $bio, $id);
         $success = $stmt->execute();
         $stmt->close();
         return $success;
@@ -224,6 +225,146 @@ public function verifyTwoFactorCode($userId, $code): bool {
     
     $twoFactorAuth = new TwoFactorAuth();
     return $twoFactorAuth->verifyCode($user['two_factor_secret'], $code);
+}
+
+public function addBalance($user_id, $amount, $description = '', $reference_id = null, $reference_type = null): bool {
+    $this->conn->begin_transaction();
+    
+    try {
+        // Update user balance
+        $sql = "UPDATE users SET balance = balance + ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("di", $amount, $user_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Record transaction
+        $sql = "INSERT INTO transactions (user_id, type, amount, description, reference_id, reference_type, created_at) 
+                VALUES (?, 'credit', ?, ?, ?, ?, NOW())";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("idsis", $user_id, $amount, $description, $reference_id, $reference_type);
+        $stmt->execute();
+        $stmt->close();
+        
+        $this->conn->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $this->conn->rollback();
+        error_log("Failed to add balance: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Deduct balance from user wallet
+ */
+public function deductBalance($user_id, $amount, $description = '', $reference_id = null, $reference_type = null): bool {
+    $this->conn->begin_transaction();
+    
+    try {
+        // Check if user has enough balance
+        $balance_sql = "SELECT balance FROM users WHERE id = ? FOR UPDATE";
+        $stmt = $this->conn->prepare($balance_sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        $stmt->close();
+        
+        if ($user['balance'] < $amount) {
+            throw new Exception("Insufficient balance");
+        }
+        
+        // Update user balance
+        $sql = "UPDATE users SET balance = balance - ? WHERE id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("di", $amount, $user_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Record transaction
+        $sql = "INSERT INTO transactions (user_id, type, amount, description, reference_id, reference_type, created_at) 
+                VALUES (?, 'debit', ?, ?, ?, ?, NOW())";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("idsis", $user_id, $amount, $description, $reference_id, $reference_type);
+        $stmt->execute();
+        $stmt->close();
+        
+        $this->conn->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $this->conn->rollback();
+        error_log("Failed to deduct balance: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get user transactions
+ */
+public function getTransactions($user_id, $limit = 50) {
+    $sql = "SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $user_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $transactions = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $transactions;
+}
+
+/**
+ * Get user balance
+ */
+public function getBalance($user_id) {
+    $sql = "SELECT balance FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    return $user['balance'] ?? 0;
+}
+
+public function hasSufficientBalance($user_id, $amount): bool {
+    $sql = "SELECT balance FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $user['balance'] >= $amount;
+}
+
+/**
+ * Update profile picture
+ */
+public function updateProfilePicture($user_id, $image_path): bool {
+    $sql = "UPDATE users SET profile_pic = ? WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("si", $image_path, $user_id);
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
+}
+
+/**
+ * Get profile picture
+ */
+public function getProfilePicture($user_id) {
+    $sql = "SELECT profile_pic FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    return $user['profile_pic'] ?? null;
 }
 
 }

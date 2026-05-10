@@ -137,9 +137,13 @@ ob_start();
                                 <?php elseif ($bid['bid_status'] == 'outbid'): ?>
                                     <span class="status-badge outbid">Outbid</span>
                                 <?php elseif ($bid['bid_status'] == 'won_payment'): ?>
-                                    <span class="status-badge won">Won - Payment Required</span>
-                                    <?php if ($payment_time_left > 0 && $payment_time_left <= 3600): ?>
-                                        <span class="payment-warning">⚠️</span>
+                                    <?php if ($payment_time_left > 0): ?>
+                                        <span class="status-badge won">Won - Payment Required</span>
+                                        <?php if ($payment_time_left > 0 && $payment_time_left <= 3600): ?>
+                                            <span class="payment-warning">⚠️</span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="status-badge expired">Expired</span>
                                     <?php endif; ?>
                                 <?php elseif ($bid['bid_status'] == 'won'): ?>
                                     <span class="status-badge won">Won - Paid</span>
@@ -647,6 +651,12 @@ main {
 }
 
 .status-badge.ended {
+    background: rgba(108, 117, 125, 0.15);
+    color: #6c757d;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.status-badge.expired {
     background: rgba(108, 117, 125, 0.15);
     color: #6c757d;
     border: 1px solid rgba(108, 117, 125, 0.3);

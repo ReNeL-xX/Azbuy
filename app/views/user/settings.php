@@ -14,7 +14,8 @@ $database = new Database();
 $conn = $database->connect();
 $userModel = new User($conn);
 $user = $userModel->getUserById($_SESSION['user_id']);
-$conn->close();
+$transactions = $userModel->getTransactions($_SESSION['user_id'], 10);
+$profile_pic = $userModel->getProfilePicture($_SESSION['user_id']);
 
 ob_start();
 ?>
@@ -25,19 +26,29 @@ ob_start();
     <div class="settings-grid">
         <div class="settings-sidebar">
             <div class="profile-summary">
-                <div class="profile-avatar">
-                    <i class="fas fa-user-circle"></i>
-                    <button class="change-avatar" onclick="document.getElementById('avatarUpload').click();">
-                        <i class="fas fa-camera"></i>
-                    </button>
-                    <input type="file" id="avatarUpload" style="display: none;" accept="image/*">
+                <div class="profile-avatar-wrapper">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <?php if ($profile_pic): ?>
+                            <img src="/AzBuy/public/<?php echo $profile_pic; ?>" alt="Profile Picture">
+                        <?php else: ?>
+                            <i class="fas fa-user-circle"></i>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <form action="index.php?action=upload-profile-pic" method="POST" enctype="multipart/form-data" id="avatarForm">
+                        <input type="file" name="profile_pic" id="avatarUpload" accept="image/*" style="display: none;">
+                        <label for="avatarUpload" class="change-avatar-btn">
+                            <i class="fas fa-camera"></i>
+                            <span>Change Photo</span>
+                        </label>
+                    </form>
                 </div>
                 <h3 id="displayFullName"><?php echo htmlspecialchars($user['full_name'] ?? $user['username']); ?></h3>
                 <p id="displayUsername">@<?php echo htmlspecialchars($user['username']); ?></p>
                 <div class="member-since">
                     <i class="fas fa-calendar"></i> Member since <?php echo date('F Y', strtotime($user['created_at'])); ?>
                 </div>
-<div class="wallet-info" style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,215,0,0.1); border-radius: 8px;">
+                <div class="wallet-info">
                     <i class="fas fa-wallet"></i> Balance: ₱<?php echo number_format($user['balance'] ?? 0, 2); ?>
                 </div>
             </div>
@@ -46,8 +57,6 @@ ob_start();
                 <a href="#" class="active" data-tab="profile"><i class="fas fa-user"></i> Profile Information</a>
                 <a href="#" data-tab="security"><i class="fas fa-shield-alt"></i> Security</a>
                 <a href="#" data-tab="wallet"><i class="fas fa-wallet"></i> Wallet & Payments</a>
-                <a href="#" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</a>
-                <a href="#" data-tab="preferences"><i class="fas fa-sliders-h"></i> Preferences</a>
             </div>
         </div>
         
@@ -100,10 +109,10 @@ ob_start();
                 <div class="form-info" style="margin-top: 2rem;">
                     <h4><i class="fas fa-info-circle"></i> Profile Tips</h4>
                     <ul>
-                        <li>Add a profile picture to build trust with other bidders</li>
-                        <li>Complete your bio to showcase your interests</li>
-                        <li>Verified email addresses get a trust badge</li>
-                        <li>Your username cannot be changed after 30 days</li>
+                        <li><i class="fas fa-camera"></i> Add a profile picture to build trust with other bidders</li>
+                        <li><i class="fas fa-file-alt"></i> Complete your bio to showcase your interests</li>
+                        <li><i class="fas fa-check-circle"></i> Verified email addresses get a trust badge</li>
+                        <li><i class="fas fa-info-circle"></i> Your username cannot be changed after 30 days</li>
                     </ul>
                 </div>
             </div>
@@ -138,47 +147,18 @@ ob_start();
                     
                     <button type="submit" class="btn btn-primary">Update Password</button>
                 </form>
-                
-                <div class="security-section" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
-                    <h3>Two-Factor Authentication (2FA)</h3>
-                    <p>Add an extra layer of security to your account</p>
-                    <button class="btn btn-secondary" onclick="enable2FA()">Enable 2FA</button>
-                </div>
-                
-                <div class="security-section" style="margin-top: 2rem;">
-                    <h3>Active Sessions</h3>
-                    <div class="session-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--dark-card); border-radius: 12px; margin-bottom: 0.5rem;">
-                        <div>
-                            <i class="fas fa-laptop" style="color: var(--primary-gold);"></i>
-                            <strong> Chrome on Windows</strong>
-                            <div><small>New York, US - Active now</small></div>
-                        </div>
-                        <span class="current-badge" style="background: var(--primary-gold); color: #000; padding: 4px 12px; border-radius: 50px; font-size: 12px;">Current</span>
-                    </div>
-                    <div class="session-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--dark-card); border-radius: 12px;">
-                        <div>
-                            <i class="fas fa-mobile-alt" style="color: var(--primary-gold);"></i>
-                            <strong> Safari on iPhone</strong>
-                            <div><small>Last active 2 days ago</small></div>
-                        </div>
-                        <button class="btn-sm btn-danger" onclick="revokeSession(this)">Revoke</button>
-                    </div>
-                </div>
             </div>
-
-            <!-- Add after Security tab link -->
-            <a href="index.php?action=2fa-setup" data-tab="2fa">
-                <i class="fas fa-shield-alt"></i> Two-Factor Auth
-            </a>
             
             <!-- Wallet & Payments Tab -->
             <div id="wallet" class="settings-tab">
                 <h2><i class="fas fa-wallet"></i> Wallet & Payment Methods</h2>
                 
-<div class="wallet-balance" style="text-align: center; padding: 2rem; background: var(--dark-card); border-radius: 20px; margin-bottom: 2rem;">
+                <div class="wallet-balance" style="text-align: center; padding: 2rem; background: var(--dark-card); border-radius: 20px; margin-bottom: 2rem;">
                     <span>Available Balance</span>
                     <div class="balance-amount" style="font-size: 2.5rem; font-weight: 800; color: var(--primary-gold);">₱<?php echo number_format($user['balance'] ?? 0, 2); ?></div>
-                    <button class="btn btn-primary" onclick="addFunds()">Add Funds</button>
+                    <a href="index.php?action=wallet" class="btn btn-primary">
+                        <i class="fas fa-wallet"></i> View Full Wallet
+                    </a>
                 </div>
                 
                 <div class="payment-methods-section">
@@ -212,135 +192,47 @@ ob_start();
                 <div class="transaction-history" style="margin-top: 2rem;">
                     <h3>Recent Transactions</h3>
                     
-                    <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color);">
-                        <div>
-                            <strong>Welcome Bonus</strong>
-                            <div><small>Initial deposit</small></div>
+                    <?php if (empty($transactions)): ?>
+                        <div class="empty-transactions">
+                            <i class="fas fa-receipt"></i>
+                            <p>No transactions yet</p>
                         </div>
-                        <span class="date" style="color: var(--text-muted);"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></span>
-                    </div>
+                    <?php else: ?>
+                        <div class="table-responsive" style="overflow-x: auto;">
+                            <table class="transactions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($transactions as $transaction): ?>
+                                        <tr>
+                                            <td><?php echo date('M d, Y', strtotime($transaction['created_at'])); ?></td>
+                                            <td><?php echo htmlspecialchars($transaction['description']); ?></td>
+                                            <td>
+                                                <?php if ($transaction['type'] == 'credit'): ?>
+                                                    <span class="credit-badge">+ Credit</span>
+                                                <?php else: ?>
+                                                    <span class="debit-badge">- Debit</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="<?php echo $transaction['type']; ?>-amount">
+                                                <?php echo $transaction['type'] == 'credit' ? '+' : '-'; ?>₱<?php echo number_format($transaction['amount'], 2); ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <a href="index.php?action=wallet" class="btn btn-secondary btn-sm">View All Transactions →</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
-            </div>
-            
-            <!-- Notifications Tab -->
-            <div id="notifications" class="settings-tab">
-                <h2><i class="fas fa-bell"></i> Notification Preferences</h2>
-                
-                <div class="notification-setting" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
-                    <div>
-                        <strong>Email Notifications</strong>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Receive updates about your bids and auctions</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" checked onchange="toggleNotification(this, 'email')">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div class="notification-setting" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
-                    <div>
-                        <strong>Push Notifications</strong>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Get real-time alerts when you're outbid</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" checked onchange="toggleNotification(this, 'push')">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div class="notification-setting" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
-                    <div>
-                        <strong>Auction Ending Alerts</strong>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Get notified 1 hour before auctions end</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" checked onchange="toggleNotification(this, 'auction_end')">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div class="notification-setting" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border-color);">
-                    <div>
-                        <strong>Marketing Emails</strong>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Receive special offers and new arrivals</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" onchange="toggleNotification(this, 'marketing')">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div class="notification-setting" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
-                    <div>
-                        <strong>SMS Alerts</strong>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Get text messages for important updates</p>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" onchange="toggleNotification(this, 'sms')">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-            
-            <!-- Preferences Tab -->
-            <div id="preferences" class="settings-tab">
-                <h2><i class="fas fa-sliders-h"></i> Preferences</h2>
-                
-                <form id="preferencesForm" onsubmit="savePreferences(event)">
-                    <div class="form-group">
-                        <label><i class="fas fa-dollar-sign"></i> Currency Display</label>
-                        <select id="currency" onchange="updateCurrency()">
-                            <option value="USD">USD ($) - US Dollar</option>
-                            <option value="EUR">EUR (€) - Euro</option>
-                            <option value="GBP">GBP (£) - British Pound</option>
-                            <option value="JPY">JPY (¥) - Japanese Yen</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-clock"></i> Time Zone</label>
-                        <select id="timezone">
-                            <option value="EST">Eastern Time (ET)</option>
-                            <option value="CST">Central Time (CT)</option>
-                            <option value="MST">Mountain Time (MT)</option>
-                            <option value="PST">Pacific Time (PT)</option>
-                            <option value="GMT">Greenwich Mean Time (GMT)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-language"></i> Language</label>
-                        <select id="language">
-                            <option value="en">English</option>
-                            <option value="es">Español</option>
-                            <option value="fr">Français</option>
-                            <option value="de">Deutsch</option>
-                            <option value="ja">日本語</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-chart-line"></i> Bid Increment Type</label>
-                        <select id="bidIncrement">
-                            <option value="auto">Automatic (Recommended)</option>
-                            <option value="manual">Manual</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-eye"></i> Outbid Notifications</label>
-                        <select id="outbidNotify">
-                            <option value="immediate">Immediately</option>
-                            <option value="daily">Daily Digest</option>
-                            <option value="never">Never</option>
-                        </select>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button type="submit" class="btn btn-primary">Save Preferences</button>
-                        <button type="button" class="btn btn-secondary" onclick="resetPreferences()">Reset to Default</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -352,6 +244,309 @@ ob_start();
 </div>
 
 <style>
+/* Settings Container */
+.settings-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.settings-container h1 {
+    color: var(--primary-gold);
+    margin-bottom: 2rem;
+}
+
+/* Settings Grid */
+.settings-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 2rem;
+}
+
+/* Sidebar */
+.settings-sidebar {
+    background: var(--dark-elevated);
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+}
+
+.profile-summary {
+    text-align: center;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-avatar-wrapper {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.profile-avatar {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.profile-avatar i {
+    font-size: 4rem;
+    color: #000;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#avatarForm {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.change-avatar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.change-avatar-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.change-avatar-btn i {
+    font-size: 12px;
+}
+
+.member-since {
+    margin-top: 0.5rem;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.wallet-info {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: rgba(255,215,0,0.1);
+    border-radius: 8px;
+}
+
+.wallet-info i {
+    color: var(--primary-gold);
+    margin-right: 8px;
+}
+
+/* Settings Navigation */
+.settings-nav {
+    margin-top: 1.5rem;
+}
+
+.settings-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 12px;
+    transition: var(--transition);
+    margin-bottom: 0.5rem;
+}
+
+.settings-nav a:hover,
+.settings-nav a.active {
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary-gold);
+}
+
+/* Content Area */
+.settings-content {
+    background: var(--dark-elevated);
+    border-radius: 20px;
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.settings-tab {
+    display: none;
+}
+
+.settings-tab.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.settings-tab h2 {
+    color: var(--primary-gold);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.form-group label i {
+    color: var(--primary-gold);
+    margin-right: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: var(--transition);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+.form-group input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Buttons */
+.btn-primary, .btn-secondary, .btn-danger {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    color: #000;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary-gold);
+    border: 1px solid var(--primary-gold);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 215, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* Form Info */
+.form-info {
+    margin-top: 2rem;
+    padding: 1.2rem;
+    background: var(--dark-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.form-info h4 {
+    color: var(--primary-gold);
+    margin-bottom: 0.5rem;
+}
+
+.form-info ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.form-info ul li {
+    padding: 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-info ul li i {
+    color: var(--primary-gold);
+    width: 25px;
+}
+
+/* Password Strength */
 .password-strength {
     margin-top: 0.5rem;
 }
@@ -371,14 +566,97 @@ ob_start();
     border-radius: 4px;
 }
 
-.current-badge {
-    background: var(--primary-gold);
-    color: #000;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 12px;
+/* Wallet Balance */
+.wallet-balance {
+    text-align: center;
+    padding: 2rem;
+    background: var(--dark-card);
+    border-radius: 20px;
+    margin-bottom: 2rem;
 }
 
+.balance-amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-gold);
+    margin: 0.5rem 0;
+}
+
+/* Payment Card */
+.payment-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: var(--dark-card);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.payment-card i {
+    font-size: 2rem;
+    color: var(--primary-gold);
+}
+
+/* Transactions Table */
+.transactions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.transactions-table th {
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary-gold);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.transactions-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.credit-badge {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+}
+
+.debit-badge {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+}
+
+.credit-amount {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.debit-amount {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.empty-transactions {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.empty-transactions i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Toast Animation */
 @keyframes slideInRight {
     from {
         opacity: 0;
@@ -390,12 +668,77 @@ ob_start();
     }
 }
 
-.settings-tab {
-    display: none;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.settings-tab.active {
-    display: block;
+/* Responsive */
+@media (max-width: 1024px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-sidebar {
+        position: static;
+    }
+}
+
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 1rem;
+    }
+    
+    .settings-content {
+        padding: 1.5rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .button-group .btn {
+        justify-content: center;
+    }
+    
+    .payment-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .change-avatar-btn span {
+        display: none;
+    }
+    
+    .change-avatar-btn {
+        padding: 6px 10px;
+    }
+    
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .profile-avatar i {
+        font-size: 3rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .wallet-balance .balance-amount {
+        font-size: 1.8rem;
+    }
+    
+    .transactions-table th,
+    .transactions-table td {
+        padding: 8px;
+        font-size: 12px;
+    }
 }
 </style>
 
@@ -409,18 +752,35 @@ function resetProfile() {
     showToast('Profile reset to default');
 }
 
-// Avatar Upload
+// Avatar Upload - Auto submit when file selected
 document.getElementById('avatarUpload')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
+    if (this.files.length > 0) {
+        const file = this.files[0];
+        
+        // Check file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('Image size must be less than 2MB', 'error');
+            this.value = '';
+            return;
+        }
+        
+        // Check file type
+        if (!file.type.match('image.*')) {
+            showToast('Please select an image file', 'error');
+            this.value = '';
+            return;
+        }
+        
+        // Show preview before upload
         const reader = new FileReader();
         reader.onload = function(e) {
-            const avatarIcon = document.querySelector('.profile-avatar i');
-            avatarIcon.style.background = `url(${e.target.result}) center/cover`;
-            avatarIcon.style.color = 'transparent';
-            showToast('Profile picture updated!');
+            const profileAvatar = document.querySelector('.profile-avatar');
+            profileAvatar.innerHTML = `<img src="${e.target.result}" alt="Profile Picture">`;
         };
         reader.readAsDataURL(file);
+        
+        // Submit the form
+        document.getElementById('avatarForm').submit();
     }
 });
 
@@ -453,23 +813,7 @@ document.getElementById('newPassword')?.addEventListener('input', function() {
     else strengthBar.style.background = '#28A745';
 });
 
-function enable2FA() {
-    showToast('2FA setup would begin here. Check your email for verification code.');
-}
-
-function revokeSession(button) {
-    button.closest('.session-item').remove();
-    showToast('Session revoked successfully');
-}
-
 // Wallet Functions
-function addFunds() {
-    const amount = prompt('Enter amount to add:', '100');
-    if (amount && !isNaN(amount) && amount > 0) {
-        showToast(`₱${amount} added to your wallet! (Demo mode)`);
-    }
-}
-
 function addPaymentMethod() {
     showToast('Payment method form would open here');
 }
@@ -479,34 +823,6 @@ function removePaymentMethod(button) {
         button.closest('.payment-card').remove();
         showToast('Payment method removed');
     }
-}
-
-// Notification Functions
-function toggleNotification(checkbox, type) {
-    const status = checkbox.checked ? 'enabled' : 'disabled';
-    showToast(`${type} notifications ${status}`);
-}
-
-// Preferences Functions
-function savePreferences(event) {
-    event.preventDefault();
-    showToast('Preferences saved successfully!');
-    return false;
-}
-
-function resetPreferences() {
-    document.getElementById('currency').value = 'USD';
-    document.getElementById('timezone').value = 'EST';
-    document.getElementById('language').value = 'en';
-    document.getElementById('bidIncrement').value = 'auto';
-    document.getElementById('outbidNotify').value = 'immediate';
-    showToast('Preferences reset to default');
-}
-
-function updateCurrency() {
-    const currency = document.getElementById('currency').value;
-    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '¥';
-    showToast(`Currency changed to ${currency} (${symbol})`);
 }
 
 // Toast Notification
@@ -554,4 +870,7 @@ $content = ob_get_clean();
 require_once dirname(__DIR__) . '/layouts/header.php';
 echo $content;
 require_once dirname(__DIR__) . '/layouts/footer.php';
+
+// Close the connection at the very end
+$conn->close();
 ?>
