@@ -72,7 +72,7 @@ ob_start();
                             <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name'] ?? ''); ?>" placeholder="Your full name">
                         </div>
                         <div class="form-group">
-                            <label><i class="fas fa-at"></i> Username</label>
+                            <label><i class="fa-solid fa-address-card"></i></i> Username</label>
                             <input type="text" value="<?php echo htmlspecialchars($user['username']); ?>" disabled>
                             <small>Username cannot be changed</small>
                         </div>

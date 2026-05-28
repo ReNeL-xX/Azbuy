@@ -50,17 +50,7 @@ ob_start();
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label><i class="fas fa-clock"></i> Extend Auction By</label>
-                    <select name="duration_hours">
-                        <option value="24">+24 hours</option>
-                        <option value="48">+48 hours</option>
-                        <option value="72">+72 hours</option>
-                        <option value="168">+7 days</option>
-                        <option value="336">+14 days</option>
-                    </select>
-                    <small>Extend the auction end time</small>
-                </div>
+                <!-- REMOVED: Extend Auction By section -->
             </div>
             
             <div class="form-group">
@@ -85,12 +75,18 @@ ob_start();
                 <small>Upload a new image (JPG, PNG, GIF - Max 5MB)</small>
             </div>
             
+            <!-- Display current end time (read-only) -->
+            <div class="form-group">
+                <label><i class="fas fa-clock"></i> Auction End Time</label>
+                <input type="text" value="<?php echo date('F j, Y g:i A', strtotime($auction['end_time'])); ?>" disabled>
+                <small>End time cannot be changed</small>
+            </div>
+            
             <div class="form-info" style="margin-top: 1rem;">
                 <h4><i class="fas fa-info-circle"></i> Important Notes</h4>
                 <ul>
                     <li><i class="fas fa-info-circle"></i> Only active auctions can be edited</li>
                     <li><i class="fas fa-chart-line"></i> Current price and bid history cannot be changed</li>
-                    <li><i class="fas fa-clock"></i> Extending the auction time will give more time for bids</li>
                     <li><i class="fas fa-save"></i> Changes will take effect immediately</li>
                 </ul>
             </div>
@@ -151,6 +147,118 @@ function removeNewImage() {
 </script>
 
 <style>
+.form-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.form-card {
+    background: var(--dark-elevated);
+    border-radius: 24px;
+    padding: 2rem;
+    max-width: 800px;
+    width: 100%;
+    border: 1px solid var(--border-color);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.form-header i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.form-header h2 {
+    color: var(--primary-gold);
+    margin-bottom: 0.5rem;
+}
+
+.form-header p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.form-group label i {
+    color: var(--primary-gold);
+    margin-right: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: var(--transition);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+.form-group input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--dark-elevated);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0.5rem 0;
+}
+
+.form-checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-gold);
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
 .image-upload-area {
     border: 2px dashed var(--border-color);
     border-radius: 16px;
@@ -179,9 +287,27 @@ function removeNewImage() {
     margin-bottom: 1rem;
 }
 
+.image-preview {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.form-info {
+    margin-top: 2rem;
+    padding: 1.2rem;
+    background: var(--dark-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.form-info h4 {
+    color: var(--primary-gold);
+    margin-bottom: 0.8rem;
+}
+
 .form-info ul {
-    list-style: none;
-    padding-left: 0;
+    margin-left: 1.2rem;
+    color: var(--text-secondary);
 }
 
 .form-info ul li {
@@ -194,6 +320,59 @@ function removeNewImage() {
 .form-info ul li i {
     color: var(--primary-gold);
     width: 25px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+    color: #000;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary-gold);
+    border: 1px solid var(--primary-gold);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 215, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 1rem;
+    }
+    
+    .form-card {
+        padding: 1.5rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
 }
 </style>
 

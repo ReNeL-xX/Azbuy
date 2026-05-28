@@ -38,7 +38,7 @@ class AuctionController {
         require_once __DIR__ . '/../views/auction/create_auction.php';
     }
     
-    public function createAuction() {
+        public function createAuction() {
         if (!isset($_SESSION['user_id'])) {
             header('Location: index.php?action=login');
             exit;
@@ -55,10 +55,14 @@ class AuctionController {
         $starting_price = floatval($_POST['starting_price'] ?? 0);
         $duration_hours = intval($_POST['duration_hours'] ?? 24);
         $bid_increment = floatval($_POST['bid_increment'] ?? 1.00);
+        $shipping = $_POST['shipping'] ?? 'buyer';
+        $location = trim($_POST['location'] ?? '');
         
+        // Use server time for consistency
         $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
         $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
         
+        // Validation
         $errors = [];
         if (empty($title)) {
             $errors[] = 'Title is required';
@@ -82,6 +86,7 @@ class AuctionController {
             exit;
         }
         
+        // Handle image upload
         $image_url = null;
         if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
             $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -113,7 +118,7 @@ class AuctionController {
         
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
-        $result = $auctionModel->create($_SESSION['user_id'], $title, $description, $category, $starting_price, $end_time, $image_url, $bid_increment);
+        $result = $auctionModel->create($_SESSION['user_id'], $title, $description, $category, $starting_price, $end_time, $image_url, $bid_increment, $shipping, $location);
         $conn->close();
         
         if ($result['success']) {
@@ -353,11 +358,10 @@ class AuctionController {
         $title = trim($_POST['title'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $category = $_POST['category'] ?? '';
-        $duration_hours = intval($_POST['duration_hours'] ?? 24);
         
-        $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
-        $end_time = $now->modify("+{$duration_hours} hours")->format('Y-m-d H:i:s');
+        // REMOVED: duration_hours - end time cannot be changed
         
+        // Validation
         $errors = [];
         if (empty($title)) {
             $errors[] = 'Title is required';
@@ -375,6 +379,7 @@ class AuctionController {
             exit;
         }
         
+        // Handle image upload
         $image_url = null;
         $keep_image = isset($_POST['keep_image']) ? true : false;
         
@@ -398,7 +403,9 @@ class AuctionController {
         
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
-        $result = $auctionModel->updateAuction($auction_id, $_SESSION['user_id'], $title, $description, $category, $end_time, $image_url);
+        
+        // REMOVED: end_time parameter - keep original end time
+        $result = $auctionModel->updateAuction($auction_id, $_SESSION['user_id'], $title, $description, $category, null, $image_url);
         $conn->close();
         
         if ($result['success']) {

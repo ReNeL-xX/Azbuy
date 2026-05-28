@@ -367,6 +367,118 @@ public function getProfilePicture($user_id) {
     return $user['profile_pic'] ?? null;
 }
 
+
+/**
+ * Get user public profile (for public viewing)
+ */
+public function getPublicProfile($user_id): ?array {
+    $sql = "SELECT id, username, full_name, phone, email, profile_pic, bio, created_at 
+            FROM users WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    return $user;
+}
+
+
+/**
+ * Add or update rating for a seller
+ */
+public function addRating($seller_id, $buyer_id, $auction_id, $rating, $review = null): array {
+    // Allow multiple ratings - remove the check for existing rating
+    // Just insert the new rating
+    
+    $insert_sql = "INSERT INTO ratings (seller_id, buyer_id, auction_id, rating, review, created_at) 
+                   VALUES (?, ?, ?, ?, ?, NOW())";
+    $stmt = $this->conn->prepare($insert_sql);
+    $stmt->bind_param("iiiis", $seller_id, $buyer_id, $auction_id, $rating, $review);
+    
+    if ($stmt->execute()) {
+        // Update seller's average rating
+        $this->updateSellerRating($seller_id);
+        $stmt->close();
+        return ['success' => true, 'message' => 'Rating submitted successfully!'];
+    }
+    
+    $error = $stmt->error;
+    $stmt->close();
+    return ['success' => false, 'message' => 'Failed to submit rating: ' . $error];
+}
+
+/**
+ * Update seller's average rating
+ */
+private function updateSellerRating($seller_id) {
+    $sql = "SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM ratings WHERE seller_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $seller_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $data = $result->fetch_assoc();
+    $stmt->close();
+    
+    $avg_rating = round($data['avg_rating'], 1);
+    $rating_count = $data['rating_count'];
+    
+    $update_sql = "UPDATE users SET seller_rating_avg = ?, seller_rating_count = ? WHERE id = ?";
+    $stmt = $this->conn->prepare($update_sql);
+    $stmt->bind_param("dii", $avg_rating, $rating_count, $seller_id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+/**
+ * Get ratings for a seller
+ */
+public function getSellerRatings($seller_id, $limit = 10) {
+    $sql = "SELECT r.*, u.username as buyer_name 
+            FROM ratings r 
+            JOIN users u ON r.buyer_id = u.id 
+            WHERE r.seller_id = ? 
+            ORDER BY r.created_at DESC LIMIT ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $seller_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $ratings = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $ratings;
+}
+
+/**
+ * Check if user can rate a seller (has purchased from them)
+ */
+public function canRateSeller($buyer_id, $seller_id) {
+    $sql = "SELECT id FROM auctions 
+            WHERE seller_id = ? AND winner_id = ? AND status = 'paid' 
+            LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $seller_id, $buyer_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $can_rate = $result->num_rows > 0;
+    $stmt->close();
+    return $can_rate;
+}
+
+/**
+ * Check if user has already rated a seller for a specific auction
+ */
+public function hasRated($buyer_id, $seller_id, $auction_id) {
+    $sql = "SELECT id FROM ratings WHERE seller_id = ? AND buyer_id = ? AND auction_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("iii", $seller_id, $buyer_id, $auction_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $has_rated = $result->num_rows > 0;
+    $stmt->close();
+    return $has_rated;
+}
+
+
 }
 
 

@@ -25,14 +25,17 @@ ob_start();
             <div class="auction-title">
                 <h1><?php echo htmlspecialchars($auction['title']); ?></h1>
                 <div class="seller-info">
-                    <i class="fas fa-store"></i> Sold by <strong><?php echo htmlspecialchars($auction['seller_name']); ?></strong>
+                    <i class="fas fa-store"></i> Sold by 
+                    <a href="index.php?action=user-profile&id=<?php echo $auction['seller_id']; ?>" class="seller-link">
+                        <strong><?php echo htmlspecialchars($auction['seller_name']); ?></strong>
+                    </a>
                 </div>
             </div>
             
             <div class="bid-status-card">
                 <div class="current-bid-section">
                     <span class="label">Current Bid</span>
-<div class="current-bid-amount">₱<?php echo number_format($auction['current_price'], 2); ?></div>
+                    <div class="current-bid-amount">₱<?php echo number_format($auction['current_price'], 2); ?></div>
                     <span class="bid-count"><?php echo count($bid_history); ?> bids</span>
                 </div>
                 
@@ -45,14 +48,14 @@ ob_start();
                 
                 <?php if ($_SESSION['user_id'] != $auction['seller_id'] && $auction['status'] == 'active' && strtotime($auction['end_time']) > time()): ?>
                 <div class="bid-form-section">
-<label>Your Bid (PHP)</label>
+                    <label>Your Bid (PHP)</label>
                     <div class="bid-input-group">
                         <span class="currency">₱</span>
                         <input type="number" id="bid_amount" step="<?php echo $auction['bid_increment']; ?>" value="<?php echo $auction['current_price'] + $auction['bid_increment']; ?>">
                         <button onclick="placeBid()" class="btn btn-primary">Place Bid</button>
                     </div>
                     <div class="bid-info">
-<p><i class="fas fa-info-circle"></i> Minimum bid: <span id="minBid">₱<?php echo number_format($auction['current_price'] + $auction['bid_increment'], 2); ?></span></p>
+                        <p><i class="fas fa-info-circle"></i> Minimum bid: <span id="minBid">₱<?php echo number_format($auction['current_price'] + $auction['bid_increment'], 2); ?></span></p>
                         <p><i class="fas fa-chart-line"></i> Bid increment: ₱<?php echo number_format($auction['bid_increment'], 2); ?></p>
                     </div>
                 </div>
@@ -67,6 +70,7 @@ ob_start();
                 <div class="tabs">
                     <button class="tab-btn active" onclick="showTab('description')">Description</button>
                     <button class="tab-btn" onclick="showTab('details')">Item Details</button>
+                    <button class="tab-btn" onclick="showTab('shipping')">Shipping & Contact</button>
                     <button class="tab-btn" onclick="showTab('bids')">Bid History</button>
                 </div>
                 
@@ -77,11 +81,69 @@ ob_start();
                 <div id="details" class="tab-content">
                     <table class="details-table">
                         <tr><th>Category</th><td><?php echo htmlspecialchars($auction['category']); ?></td></tr>
-<tr><th>Starting Price</th><td>₱<?php echo number_format($auction['starting_price'], 2); ?></td></tr>
+                        <tr><th>Starting Price</th><td>₱<?php echo number_format($auction['starting_price'], 2); ?></td></tr>
                         <tr><th>Current Price</th><td>₱<?php echo number_format($auction['current_price'], 2); ?></td></tr>
                         <tr><th>Bid Increment</th><td>₱<?php echo number_format($auction['bid_increment'], 2); ?></td></tr>
                         <tr><th>End Time</th><td><?php echo date('F j, Y g:i A', strtotime($auction['end_time'])); ?></td></tr>
+                        <?php if (!empty($auction['location'])): ?>
+                        <tr><th>Item Location</th><td><?php echo htmlspecialchars($auction['location']); ?></td></tr>
+                        <?php endif; ?>
                     </table>
+                </div>
+                
+                <!-- New Shipping & Contact Tab -->
+                <div id="shipping" class="tab-content">
+                    <table class="details-table">
+                        <tr>
+                            <th><i class="fas fa-truck"></i> Shipping Option</th>
+                            <td>
+                                <?php 
+                                $shipping_options = [
+                                    'seller' => 'Seller pays shipping',
+                                    'buyer' => 'Buyer pays shipping',
+                                    'free' => 'Free shipping',
+                                    'local' => 'Local pickup only'
+                                ];
+                                $shipping = $auction['shipping'] ?? 'buyer';
+                                echo isset($shipping_options[$shipping]) ? $shipping_options[$shipping] : ucfirst($shipping);
+                                ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><i class="fas fa-phone"></i> Seller Contact</th>
+                            <td>
+                                <?php if (!empty($auction['seller_phone'])): ?>
+                                    <a href="tel:<?php echo htmlspecialchars($auction['seller_phone']); ?>" class="contact-link">
+                                        <i class="fas fa-phone-alt"></i> <?php echo htmlspecialchars($auction['seller_phone']); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted">Contact seller after winning</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><i class="fas fa-envelope"></i> Seller Email</th>
+                            <td>
+                                <?php if (!empty($auction['seller_email'])): ?>
+                                    <a href="mailto:<?php echo htmlspecialchars($auction['seller_email']); ?>" class="contact-link">
+                                        <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($auction['seller_email']); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted">Contact via platform</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php if (!empty($auction['location'])): ?>
+                        <tr>
+                            <th><i class="fas fa-map-marker-alt"></i> Location</th>
+                            <td><?php echo htmlspecialchars($auction['location']); ?></td>
+                        </tr>
+                        <?php endif; ?>
+                    </table>
+                    
+                    <?php if ($_SESSION['user_id'] != $auction['seller_id'] && $auction['status'] == 'active'): ?>
+                    
+                    <?php endif; ?>
                 </div>
                 
                 <div id="bids" class="tab-content">
@@ -92,7 +154,7 @@ ob_start();
                             <?php foreach ($bid_history as $bid): ?>
                                 <div class="bid-row">
                                     <span class="bidder"><?php echo htmlspecialchars($bid['username']); ?></span>
-<span class="amount">₱<?php echo number_format($bid['amount'], 2); ?></span>
+                                    <span class="amount">₱<?php echo number_format($bid['amount'], 2); ?></span>
                                     <span class="time"><?php echo date('M d, H:i', strtotime($bid['bid_time'])); ?></span>
                                 </div>
                             <?php endforeach; ?>
@@ -119,12 +181,9 @@ function placeBid() {
     
     const minBid = currentPrice + bidIncrement;
     if (parseFloat(amount) < minBid) {
-alert('Bid must be at least ₱' + minBid.toFixed(2));
+        alert('Bid must be at least ₱' + minBid.toFixed(2));
         return;
     }
-    
-    // REMOVED: The modulus check that required exact multiples
-    // Users can now bid any amount above the minimum
     
     // Show loading
     const btn = event.target;
@@ -211,6 +270,10 @@ function showTab(tabId) {
     event.target.classList.add('active');
 }
 
+function showContactInfo() {
+    alert('Contact information available after winning the auction or when seller provides contact details.');
+}
+
 startCountdown();
 </script>
 
@@ -223,6 +286,7 @@ startCountdown();
     border-radius: 8px;
     text-align: center;
 }
+
 .alert-error {
     background: rgba(220, 53, 69, 0.15);
     border: 1px solid rgba(220, 53, 69, 0.3);
@@ -231,41 +295,136 @@ startCountdown();
     border-radius: 8px;
     text-align: center;
 }
+
 .countdown-large .timer {
     font-size: 1.5rem;
     font-weight: bold;
     color: var(--primary-gold);
 }
+
 .bid-row {
     display: flex;
     justify-content: space-between;
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
 }
+
 .bid-row .amount {
     color: var(--primary-gold);
     font-weight: bold;
 }
+
 .bid-row .time {
     color: var(--text-muted);
     font-size: 12px;
 }
+
 .tab-content {
     display: none;
 }
+
 .tab-content.active {
     display: block;
+    animation: fadeIn 0.3s ease;
 }
+
 .tabs .tab-btn {
     background: none;
     border: none;
     padding: 10px 20px;
     cursor: pointer;
     color: var(--text-secondary);
+    transition: all 0.3s;
 }
+
 .tabs .tab-btn.active {
     color: var(--primary-gold);
     border-bottom: 2px solid var(--primary-gold);
+}
+
+.details-table {
+    width: 100%;
+}
+
+.details-table tr {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--primary-gold);
+    width: 40%;
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.details-table td {
+    padding: 12px;
+    color: var(--text-secondary);
+}
+
+.contact-link {
+    color: var(--primary-gold);
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.contact-link:hover {
+    text-decoration: underline;
+}
+
+.contact-seller-box {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--dark-card);
+    border-radius: 16px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.contact-seller-box h4 {
+    color: var(--primary-gold);
+    margin-bottom: 0.5rem;
+}
+
+.contact-seller-box p {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .details-table th,
+    .details-table td {
+        padding: 8px;
+        font-size: 13px;
+    }
+    
+    .tabs .tab-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .seller-link {
+        color: var(--primary-gold);
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .seller-link:hover {
+        text-decoration: underline;
+        color: var(--primary-gold-light);
+    }
 }
 </style>
 

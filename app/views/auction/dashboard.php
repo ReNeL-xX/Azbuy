@@ -20,6 +20,45 @@ ob_start();
         </a>
     </div>
     
+    <!-- Search and Filter Bar -->
+    <div class="filter-bar">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search auctions by title...">
+        </div>
+        
+        <div class="filter-group">
+            <select id="categoryFilter">
+                <option value="all">All Categories</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Collectibles">Collectibles</option>
+                <option value="Art">Art</option>
+                <option value="Furniture">Furniture</option>
+                <option value="Vehicles">Vehicles</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Jewelry">Jewelry</option>
+                <option value="Sports">Sports Memorabilia</option>
+                <option value="Books">Books & Magazines</option>
+                <option value="Music">Music & Instruments</option>
+                <option value="Toys">Toys & Hobbies</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <select id="sortFilter">
+                <option value="time_asc">Time Left (Lowest First)</option>
+                <option value="price_asc">Price (Low to High)</option>
+                <option value="price_desc">Price (High to Low)</option>
+                <option value="bids_desc">Most Bids</option>
+                <option value="newest">Newest First</option>
+            </select>
+        </div>
+        
+        <div class="filter-results">
+            <span id="resultsCount">0</span> auctions found
+        </div>
+    </div>
+    
     <?php if (empty($active_auctions)): ?>
         <div class="empty-state">
             <i class="fas fa-gavel"></i>
@@ -28,9 +67,15 @@ ob_start();
             <a href="index.php?action=create-auction" class="btn btn-primary">Create Auction</a>
         </div>
     <?php else: ?>
-        <div class="auctions-grid">
+        <div class="auctions-grid" id="auctionsGrid">
             <?php foreach ($active_auctions as $auction): ?>
-                <div class="auction-card">
+                <div class="auction-card" 
+                     data-title="<?php echo strtolower(htmlspecialchars($auction['title'])); ?>"
+                     data-category="<?php echo htmlspecialchars($auction['category']); ?>"
+                     data-price="<?php echo $auction['current_price']; ?>"
+                     data-bids="<?php echo $auction['bid_count']; ?>"
+                     data-endtime="<?php echo strtotime($auction['end_time']); ?>"
+                     data-created="<?php echo strtotime($auction['created_at']); ?>">
                     <div class="auction-image">
                         <?php if ($auction['image_url']): ?>
                             <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
@@ -55,6 +100,13 @@ ob_start();
                     </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+        
+        <!-- No Results Message -->
+        <div id="noResults" class="no-results" style="display: none;">
+            <i class="fas fa-search"></i>
+            <h3>No auctions found</h3>
+            <p>Try adjusting your search or filter criteria</p>
         </div>
     <?php endif; ?>
 </div>
@@ -84,6 +136,83 @@ ob_start();
     color: var(--text-secondary);
 }
 
+/* Filter Bar Styles */
+.filter-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--dark-elevated);
+    padding: 1rem 1.5rem;
+    border-radius: 60px;
+    border: 1px solid var(--border-color);
+}
+
+.search-box {
+    position: relative;
+    flex: 2;
+    min-width: 200px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 16px 10px 40px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 50px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: var(--transition);
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
+}
+
+.search-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.filter-group select {
+    padding: 10px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 50px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.filter-group select:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+}
+
+.filter-results {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.filter-results span {
+    color: var(--primary-gold);
+    font-weight: 600;
+}
+
 .auctions-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -96,6 +225,7 @@ ob_start();
     overflow: hidden;
     transition: var(--transition);
     border: 1px solid var(--border-color);
+    position: relative;
 }
 
 .auction-card:hover {
@@ -191,6 +321,35 @@ ob_start();
     color: var(--text-muted);
 }
 
+.btn-block {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+.no-results {
+    text-align: center;
+    padding: 4rem;
+    background: var(--dark-elevated);
+    border-radius: 20px;
+    margin-top: 2rem;
+}
+
+.no-results i {
+    font-size: 4rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.no-results h3 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.no-results p {
+    color: var(--text-secondary);
+}
+
 .empty-state {
     text-align: center;
     padding: 4rem;
@@ -214,12 +373,6 @@ ob_start();
     margin-bottom: 1.5rem;
 }
 
-.btn-block {
-    display: block;
-    width: 100%;
-    text-align: center;
-}
-
 @media (max-width: 768px) {
     .dashboard-container {
         padding: 1rem;
@@ -228,6 +381,25 @@ ob_start();
     .dashboard-header {
         flex-direction: column;
         text-align: center;
+    }
+    
+    .filter-bar {
+        flex-direction: column;
+        border-radius: 20px;
+        align-items: stretch;
+    }
+    
+    .search-box {
+        width: 100%;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+    
+    .filter-results {
+        text-align: center;
+        margin-left: 0;
     }
     
     .auctions-grid {
@@ -278,7 +450,100 @@ function initCountdowns() {
     });
 }
 
+// Filter and Search Functionality
+function filterAuctions() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const sortFilter = document.getElementById('sortFilter').value;
+    
+    const auctionCards = document.querySelectorAll('.auction-card');
+    let visibleCount = 0;
+    const auctionsArray = [];
+    
+    // First collect all auctions with their visibility
+    auctionCards.forEach(card => {
+        const title = card.dataset.title;
+        const category = card.dataset.category;
+        const price = parseFloat(card.dataset.price);
+        const bids = parseInt(card.dataset.bids);
+        const endTime = parseInt(card.dataset.endtime);
+        const created = parseInt(card.dataset.created);
+        
+        let show = true;
+        
+        // Search filter
+        if (searchTerm && !title.includes(searchTerm)) {
+            show = false;
+        }
+        
+        // Category filter
+        if (show && categoryFilter !== 'all' && category !== categoryFilter) {
+            show = false;
+        }
+        
+        // Store for sorting
+        auctionsArray.push({
+            card: card,
+            show: show,
+            title: title,
+            category: category,
+            price: price,
+            bids: bids,
+            endTime: endTime,
+            created: created
+        });
+    });
+    
+    // Sort the array
+    auctionsArray.sort((a, b) => {
+        switch(sortFilter) {
+            case 'price_asc':
+                return a.price - b.price;
+            case 'price_desc':
+                return b.price - a.price;
+            case 'bids_desc':
+                return b.bids - a.bids;
+            case 'newest':
+                return b.created - a.created;
+            case 'time_asc':
+            default:
+                return a.endTime - b.endTime;
+        }
+    });
+    
+    // Apply sorted order and visibility
+    const grid = document.getElementById('auctionsGrid');
+    const noResults = document.getElementById('noResults');
+    
+    auctionsArray.forEach(item => {
+        if (item.show) {
+            item.card.style.display = 'block';
+            visibleCount++;
+        } else {
+            item.card.style.display = 'none';
+        }
+        grid.appendChild(item.card);
+    });
+    
+    // Update results count
+    document.getElementById('resultsCount').innerText = visibleCount;
+    
+    // Show/hide no results message
+    if (visibleCount === 0) {
+        noResults.style.display = 'block';
+    } else {
+        noResults.style.display = 'none';
+    }
+}
+
+// Event listeners
+document.getElementById('searchInput').addEventListener('input', filterAuctions);
+document.getElementById('categoryFilter').addEventListener('change', filterAuctions);
+document.getElementById('sortFilter').addEventListener('change', filterAuctions);
+
+// Initialize
 initCountdowns();
+filterAuctions();
 </script>
 
 <?php

@@ -212,12 +212,6 @@ function initSearchFilter() {
     if (categoryFilter) categoryFilter.addEventListener('change', filterAuctions);
 }
 
-// Auto-refresh bids on auction page
-if (window.location.href.includes('view-auction')) {
-    setInterval(() => {
-        location.reload();
-    }, 30000);
-}
 
 // Initialize everything on load
 document.addEventListener('DOMContentLoaded', () => {

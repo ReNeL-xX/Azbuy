@@ -33,15 +33,50 @@ ob_start();
                     <i class="fas fa-users"></i> Manage Users
                 </a>
                 <a href="index.php?action=dashboard">
-                    <i class="fas fa-store"></i> Go to Marketplace
+                    <i class="fas fa-store"></i> Marketplace
                 </a>
-                
             </nav>
         </div>
         
         <div class="admin-content">
+            <!-- Search and Filter Bar -->
+            <div class="filter-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by title or seller...">
+                </div>
+                <div class="filter-group">
+                    <select id="statusFilter">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="ended">Ended</option>
+                        <option value="payment_pending">Payment Pending</option>
+                        <option value="paid">Paid</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select id="categoryFilter">
+                        <option value="all">All Categories</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Collectibles">Collectibles</option>
+                        <option value="Art">Art</option>
+                        <option value="Furniture">Furniture</option>
+                        <option value="Vehicles">Vehicles</option>
+                        <option value="Fashion">Fashion</option>
+                        <option value="Jewelry">Jewelry</option>
+                        <option value="Sports">Sports</option>
+                        <option value="Books">Books</option>
+                        <option value="Music">Music</option>
+                        <option value="Toys">Toys</option>
+                    </select>
+                </div>
+                <div class="filter-results">
+                    <span id="resultsCount">0</span> auctions found
+                </div>
+            </div>
+            
             <div class="table-responsive">
-                <table class="admin-table">
+                <table class="admin-table" id="auctionsTable">
                     <thead>
                         <tr>
                             <th style="width: 5%;">ID</th>
@@ -59,7 +94,6 @@ ob_start();
                     <tbody>
                         <?php foreach ($auctions as $auction): ?>
                             <?php 
-                            // Get bid count using the current connection
                             $bid_count = 0;
                             $bid_stmt = $conn->prepare("SELECT COUNT(*) as count FROM bids WHERE auction_id = ?");
                             $bid_stmt->bind_param("i", $auction['id']);
@@ -70,7 +104,10 @@ ob_start();
                             }
                             $bid_stmt->close();
                             ?>
-                            <tr>
+                            <tr data-title="<?php echo strtolower(htmlspecialchars($auction['title'])); ?>"
+                                data-seller="<?php echo strtolower(htmlspecialchars($auction['seller_name'])); ?>"
+                                data-status="<?php echo $auction['status']; ?>"
+                                data-category="<?php echo $auction['category']; ?>">
                                 <td data-label="ID"><?php echo $auction['id']; ?></td>
                                 <td data-label="Image">
                                     <?php if ($auction['image_url']): ?>
@@ -108,6 +145,12 @@ ob_start();
                     </tbody>
                 </table>
             </div>
+            
+            <div id="noResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <h3>No auctions found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+            </div>
         </div>
     </div>
 </div>
@@ -128,28 +171,36 @@ ob_start();
     margin-bottom: 0.5rem;
 }
 
+.admin-header p {
+    color: var(--text-secondary);
+}
+
 .admin-grid {
     display: grid;
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: 260px 1fr;
     gap: 2rem;
 }
 
 .admin-sidebar {
     background: var(--dark-elevated);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
     height: fit-content;
+    position: sticky;
+    top: 100px;
 }
 
 .admin-nav a {
-    display: block;
-    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
     color: var(--text-secondary);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: 12px;
+    transition: all 0.3s;
     margin-bottom: 0.5rem;
-    transition: var(--transition);
 }
 
 .admin-nav a:hover,
@@ -159,15 +210,77 @@ ob_start();
 }
 
 .admin-nav a i {
-    margin-right: 10px;
-    width: 20px;
+    width: 22px;
 }
 
 .admin-content {
     background: var(--dark-elevated);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
+}
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.search-box {
+    position: relative;
+    flex: 2;
+    min-width: 200px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 16px 10px 38px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+}
+
+.filter-group select {
+    padding: 10px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.filter-results {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.filter-results span {
+    color: var(--primary-gold);
+    font-weight: 600;
 }
 
 .table-responsive {
@@ -181,12 +294,12 @@ ob_start();
 }
 
 .admin-table th {
-    background: rgba(255, 215, 0, 0.1);
+    background: rgba(255, 215, 0, 0.08);
     color: var(--primary-gold);
     padding: 14px 12px;
     text-align: left;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 0.85rem;
 }
 
 .admin-table td {
@@ -194,34 +307,34 @@ ob_start();
     border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
     vertical-align: middle;
-    font-size: 14px;
+    font-size: 0.85rem;
 }
 
 .admin-table tr:hover {
-    background: rgba(255, 215, 0, 0.05);
+    background: rgba(255, 215, 0, 0.03);
 }
 
 .auction-image {
-    width: 50px;
-    height: 50px;
+    width: 45px;
+    height: 45px;
     object-fit: cover;
     border-radius: 8px;
 }
 
 .no-image {
-    width: 50px;
-    height: 50px;
-    background: #2a2a2a;
+    width: 45px;
+    height: 45px;
+    background: var(--dark-card);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #666;
+    color: var(--text-muted);
 }
 
 .price {
     color: var(--primary-gold);
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .center {
@@ -231,8 +344,8 @@ ob_start();
 .status-badge {
     display: inline-block;
     padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 12px;
+    border-radius: 50px;
+    font-size: 11px;
     font-weight: 600;
     text-align: center;
     min-width: 110px;
@@ -241,25 +354,21 @@ ob_start();
 .status-badge.active {
     background: rgba(40, 167, 69, 0.15);
     color: #28a745;
-    border: 1px solid rgba(40, 167, 69, 0.3);
 }
 
 .status-badge.ended {
     background: rgba(108, 117, 125, 0.15);
     color: #6c757d;
-    border: 1px solid rgba(108, 117, 125, 0.3);
 }
 
 .status-badge.payment_pending {
     background: rgba(255, 193, 7, 0.15);
     color: #ffc107;
-    border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
 .status-badge.paid {
     background: rgba(40, 167, 69, 0.15);
     color: #28a745;
-    border: 1px solid rgba(40, 167, 69, 0.3);
 }
 
 .actions-cell {
@@ -270,28 +379,28 @@ ob_start();
 
 .btn-icon {
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: 8px;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: var(--transition);
+    transition: all 0.3s;
     width: 32px;
     height: 32px;
 }
 
 .btn-icon.edit {
-    background: rgba(255, 193, 7, 0.2);
+    background: rgba(255, 193, 7, 0.15);
     color: #ffc107;
 }
 
 .btn-icon.delete {
-    background: rgba(220, 53, 69, 0.2);
+    background: rgba(220, 53, 69, 0.15);
     color: #dc3545;
 }
 
 .btn-icon.view {
-    background: rgba(23, 162, 184, 0.2);
+    background: rgba(23, 162, 184, 0.15);
     color: #17a2b8;
 }
 
@@ -300,39 +409,120 @@ ob_start();
     filter: brightness(1.1);
 }
 
-/* Responsive */
+.no-results {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+
+.no-results i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.no-results h3 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .admin-sidebar {
+        position: static;
+    }
+}
+
 @media (max-width: 768px) {
     .admin-container {
         padding: 1rem;
     }
     
-    .admin-grid {
-        grid-template-columns: 1fr;
+    .filter-bar {
+        flex-direction: column;
     }
     
-    .admin-table {
-        min-width: 800px;
+    .search-box {
+        width: 100%;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+    
+    .filter-results {
+        margin-left: 0;
+        text-align: center;
     }
     
     .admin-table th,
     .admin-table td {
-        padding: 10px 8px;
+        padding: 8px;
         font-size: 12px;
-    }
-    
-    .auction-image,
-    .no-image {
-        width: 40px;
-        height: 40px;
-    }
-    
-    .status-badge {
-        min-width: 90px;
-        font-size: 10px;
-        padding: 3px 8px;
     }
 }
 </style>
+
+<script>
+function filterAuctions() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    
+    const rows = document.querySelectorAll('#auctionsTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const title = row.dataset.title || '';
+        const seller = row.dataset.seller || '';
+        const status = row.dataset.status || '';
+        const category = row.dataset.category || '';
+        
+        let show = true;
+        
+        // Search filter
+        if (searchTerm && !title.includes(searchTerm) && !seller.includes(searchTerm)) {
+            show = false;
+        }
+        
+        // Status filter
+        if (show && statusFilter !== 'all' && status !== statusFilter) {
+            show = false;
+        }
+        
+        // Category filter
+        if (show && categoryFilter !== 'all' && category !== categoryFilter) {
+            show = false;
+        }
+        
+        if (show) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    document.getElementById('resultsCount').innerText = visibleCount;
+    
+    const noResults = document.getElementById('noResults');
+    if (visibleCount === 0) {
+        noResults.style.display = 'block';
+    } else {
+        noResults.style.display = 'none';
+    }
+}
+
+document.getElementById('searchInput').addEventListener('input', filterAuctions);
+document.getElementById('statusFilter').addEventListener('change', filterAuctions);
+document.getElementById('categoryFilter').addEventListener('change', filterAuctions);
+
+// Initial count
+filterAuctions();
+</script>
 
 <?php
 $content = ob_get_clean();

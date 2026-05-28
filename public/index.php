@@ -5,6 +5,7 @@ session_start();
 if (rand(1, 100) <= 10) {
     require_once __DIR__ . '/../config/Database.php';
     require_once __DIR__ . '/../app/models/Auction.php';
+    
     $db = new Database();
     $conn = $db->connect();
     $auctionModel = new Auction($conn);
@@ -30,6 +31,7 @@ $user_file = $controllers_path . 'UserController.php';
 $auction_file = $controllers_path . 'AuctionController.php';
 $admin_file = $controllers_path . 'AdminController.php';
 $twofactor_file = $controllers_path . 'TwoFactorController.php';
+$userprofile_file = $controllers_path . 'UserProfileController.php';  // ADDED
 
 // Check if files exist before including
 if (file_exists($auth_file)) {
@@ -61,6 +63,11 @@ if (file_exists($twofactor_file)) {
     require_once $twofactor_file;
 }
 
+// Include UserProfileController if it exists
+if (file_exists($userprofile_file)) {
+    require_once $userprofile_file;
+}
+
 // Create controller instances
 $authController = new AuthController();
 $userController = new UserController();
@@ -71,6 +78,12 @@ $adminController = new AdminController();
 $twoFactorController = null;
 if (class_exists('TwoFactorController')) {
     $twoFactorController = new TwoFactorController();
+}
+
+// Only create UserProfileController if the class exists
+$userProfileController = null;
+if (class_exists('UserProfileController')) {
+    $userProfileController = new UserProfileController();
 }
 
 switch ($action) {
@@ -285,8 +298,21 @@ switch ($action) {
 
     case 'upload-profile-pic':
         $userController->uploadProfilePicture();
-        break;       
+        break;    
         
+    // User Profile Routes
+    case 'user-profile':
+        if ($userProfileController) {
+            $userProfileController->showProfile();
+        } else {
+            $_SESSION['error'] = 'Profile feature is not available.';
+            header('Location: index.php?action=home');
+            exit;
+        }
+        break;
+
+     
+
     default:
         require_once BASE_PATH . '/views/pages/home.php';
         break;

@@ -41,11 +41,8 @@ ob_start();
         
         <p class="auth-link">Don't have an account? <a href="index.php?action=register">Sign Up</a></p>
       
-        <!-- Demo credentials info -->
-        <div class="demo-info" style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,215,0,0.1); border-radius: 8px; text-align: center;">
-            <small style="color: #FFD700;">Demo Credentials:</small><br>
-            <small>Username: <strong>demo</strong> | Password: <strong>demo123</strong></small>
-        </div>
+        
+        
     </div>
 </div>
 

@@ -33,14 +33,32 @@ ob_start();
                     <i class="fas fa-users"></i> Manage Users
                 </a>
                 <a href="index.php?action=dashboard">
-                    <i class="fas fa-store"></i> Go to Marketplace
+                    <i class="fas fa-store"></i> Marketplace
                 </a>
             </nav>
         </div>
         
         <div class="admin-content">
+            <!-- Search and Filter Bar -->
+            <div class="filter-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by username, email, or name...">
+                </div>
+                <div class="filter-group">
+                    <select id="roleFilter">
+                        <option value="all">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="user">Regular User</option>
+                    </select>
+                </div>
+                <div class="filter-results">
+                    <span id="resultsCount">0</span> users found
+                </div>
+            </div>
+            
             <div class="table-responsive">
-                <table class="admin-table">
+                <table class="admin-table" id="usersTable">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -49,21 +67,24 @@ ob_start();
                             <th>Full Name</th>
                             <th>Phone</th>
                             <th>Balance</th>
-                            <th>Admin</th>
+                            <th>Role</th>
                             <th>Joined</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($users as $user): ?>
-                            <tr>
+                            <tr data-username="<?php echo strtolower(htmlspecialchars($user['username'])); ?>"
+                                data-email="<?php echo strtolower(htmlspecialchars($user['email'])); ?>"
+                                data-name="<?php echo strtolower(htmlspecialchars($user['full_name'] ?? '')); ?>"
+                                data-role="<?php echo $user['is_admin'] ? 'admin' : 'user'; ?>">
                                 <td data-label="ID"><?php echo $user['id']; ?></td>
                                 <td data-label="Username"><?php echo htmlspecialchars($user['username']); ?></td>
                                 <td data-label="Email"><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td data-label="Full Name"><?php echo htmlspecialchars($user['full_name'] ?? '-'); ?></td>
                                 <td data-label="Phone"><?php echo htmlspecialchars($user['phone'] ?? '-'); ?></td>
                                 <td data-label="Balance" class="price">₱<?php echo number_format($user['balance'], 2); ?></td>
-                                <td data-label="Admin">
+                                <td data-label="Role">
                                     <?php if ($user['is_admin'] == 1): ?>
                                         <span class="admin-badge">Admin</span>
                                     <?php else: ?>
@@ -86,6 +107,12 @@ ob_start();
                     </tbody>
                 </table>
             </div>
+            
+            <div id="noResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <h3>No users found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+            </div>
         </div>
     </div>
 </div>
@@ -106,28 +133,36 @@ ob_start();
     margin-bottom: 0.5rem;
 }
 
+.admin-header p {
+    color: var(--text-secondary);
+}
+
 .admin-grid {
     display: grid;
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: 260px 1fr;
     gap: 2rem;
 }
 
 .admin-sidebar {
     background: var(--dark-elevated);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
     height: fit-content;
+    position: sticky;
+    top: 100px;
 }
 
 .admin-nav a {
-    display: block;
-    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
     color: var(--text-secondary);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: 12px;
+    transition: all 0.3s;
     margin-bottom: 0.5rem;
-    transition: var(--transition);
 }
 
 .admin-nav a:hover,
@@ -137,15 +172,77 @@ ob_start();
 }
 
 .admin-nav a i {
-    margin-right: 10px;
-    width: 20px;
+    width: 22px;
 }
 
 .admin-content {
     background: var(--dark-elevated);
-    border-radius: 16px;
+    border-radius: 20px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
+}
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.search-box {
+    position: relative;
+    flex: 2;
+    min-width: 200px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 16px 10px 38px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary-gold);
+}
+
+.filter-group select {
+    padding: 10px 16px;
+    background: var(--dark-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.filter-results {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.filter-results span {
+    color: var(--primary-gold);
+    font-weight: 600;
 }
 
 .table-responsive {
@@ -159,12 +256,12 @@ ob_start();
 }
 
 .admin-table th {
-    background: rgba(255, 215, 0, 0.1);
+    background: rgba(255, 215, 0, 0.08);
     color: var(--primary-gold);
     padding: 14px 12px;
     text-align: left;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 0.85rem;
 }
 
 .admin-table td {
@@ -172,23 +269,23 @@ ob_start();
     border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
     vertical-align: middle;
-    font-size: 14px;
+    font-size: 0.85rem;
 }
 
 .admin-table tr:hover {
-    background: rgba(255, 215, 0, 0.05);
+    background: rgba(255, 215, 0, 0.03);
 }
 
 .price {
     color: var(--primary-gold);
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .admin-badge {
     background: rgba(255, 215, 0, 0.2);
     color: var(--primary-gold);
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 4px 12px;
+    border-radius: 50px;
     font-size: 11px;
     font-weight: 600;
 }
@@ -196,8 +293,8 @@ ob_start();
 .user-badge {
     background: rgba(108, 117, 125, 0.2);
     color: #6c757d;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 4px 12px;
+    border-radius: 50px;
     font-size: 11px;
     font-weight: 600;
 }
@@ -210,28 +307,28 @@ ob_start();
 
 .btn-icon {
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: 8px;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: var(--transition);
+    transition: all 0.3s;
     width: 32px;
     height: 32px;
 }
 
 .btn-icon.edit {
-    background: rgba(255, 193, 7, 0.2);
+    background: rgba(255, 193, 7, 0.15);
     color: #ffc107;
 }
 
 .btn-icon.delete {
-    background: rgba(220, 53, 69, 0.2);
+    background: rgba(220, 53, 69, 0.15);
     color: #dc3545;
 }
 
 .btn-icon.view {
-    background: rgba(23, 162, 184, 0.2);
+    background: rgba(23, 162, 184, 0.15);
     color: #17a2b8;
 }
 
@@ -240,26 +337,113 @@ ob_start();
     filter: brightness(1.1);
 }
 
+.no-results {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+
+.no-results i {
+    font-size: 3rem;
+    color: var(--primary-gold);
+    margin-bottom: 1rem;
+}
+
+.no-results h3 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .admin-sidebar {
+        position: static;
+    }
+}
+
 @media (max-width: 768px) {
     .admin-container {
         padding: 1rem;
     }
     
-    .admin-grid {
-        grid-template-columns: 1fr;
+    .filter-bar {
+        flex-direction: column;
     }
     
-    .admin-table {
-        min-width: 800px;
+    .search-box {
+        width: 100%;
+    }
+    
+    .filter-group select {
+        width: 100%;
+    }
+    
+    .filter-results {
+        margin-left: 0;
+        text-align: center;
     }
     
     .admin-table th,
     .admin-table td {
-        padding: 10px 8px;
+        padding: 8px;
         font-size: 12px;
     }
 }
 </style>
+
+<script>
+function filterUsers() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const roleFilter = document.getElementById('roleFilter').value;
+    
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const username = row.dataset.username || '';
+        const email = row.dataset.email || '';
+        const name = row.dataset.name || '';
+        const role = row.dataset.role || '';
+        
+        let show = true;
+        
+        // Search filter
+        if (searchTerm && !username.includes(searchTerm) && !email.includes(searchTerm) && !name.includes(searchTerm)) {
+            show = false;
+        }
+        
+        // Role filter
+        if (show && roleFilter !== 'all' && role !== roleFilter) {
+            show = false;
+        }
+        
+        if (show) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    document.getElementById('resultsCount').innerText = visibleCount;
+    
+    const noResults = document.getElementById('noResults');
+    if (visibleCount === 0) {
+        noResults.style.display = 'block';
+    } else {
+        noResults.style.display = 'none';
+    }
+}
+
+document.getElementById('searchInput').addEventListener('input', filterUsers);
+document.getElementById('roleFilter').addEventListener('change', filterUsers);
+
+// Initial count
+filterUsers();
+</script>
 
 <?php
 $content = ob_get_clean();

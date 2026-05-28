@@ -6,17 +6,17 @@ class Auction {
         $this->conn = $conn;
     }
     
-    // Create a new auction
-    public function create($seller_id, $title, $description, $category, $starting_price, $end_time, $image_url = null, $bid_increment = 1.00): array {
+        // Create a new auction
+    public function create($seller_id, $title, $description, $category, $starting_price, $end_time, $image_url = null, $bid_increment = 1.00, $shipping = 'buyer', $location = null): array {
         if (empty($title) || empty($starting_price) || $starting_price <= 0) {
             return ['success' => false, 'message' => 'Invalid auction data'];
         }
         
-        $sql = "INSERT INTO auctions (seller_id, title, description, category, starting_price, current_price, bid_increment, end_time, image_url, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')";
+        $sql = "INSERT INTO auctions (seller_id, title, description, category, starting_price, current_price, bid_increment, end_time, image_url, status, shipping, location) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)";
         $stmt = $this->conn->prepare($sql);
         $current_price = $starting_price;
-        $stmt->bind_param("isssddsss", $seller_id, $title, $description, $category, $starting_price, $current_price, $bid_increment, $end_time, $image_url);
+        $stmt->bind_param("isssddsssss", $seller_id, $title, $description, $category, $starting_price, $current_price, $bid_increment, $end_time, $image_url, $shipping, $location);
         
         if ($stmt->execute()) {
             $auction_id = $this->conn->insert_id;
@@ -57,9 +57,9 @@ class Auction {
         return $auctions;
     }
     
-    // Get auction by ID
+        // Get auction by ID
     public function getAuctionById($id) {
-        $sql = "SELECT a.*, u.username as seller_name, u.id as seller_id
+        $sql = "SELECT a.*, u.username as seller_name, u.id as seller_id, u.phone as seller_phone, u.email as seller_email
                 FROM auctions a 
                 JOIN users u ON a.seller_id = u.id 
                 WHERE a.id = ?";
@@ -336,9 +336,10 @@ class Auction {
         return $bid;
     }
     
-    // Update auction
-    public function updateAuction($auction_id, $user_id, $title, $description, $category, $end_time, $image_url = null): array {
-        $check_sql = "SELECT id, status, image_url FROM auctions WHERE id = ? AND seller_id = ?";
+        // Update auction (only for active auctions that belong to the user)
+    public function updateAuction($auction_id, $user_id, $title, $description, $category, $end_time = null, $image_url = null): array {
+        // Check if auction exists and belongs to user
+        $check_sql = "SELECT id, status, image_url, end_time FROM auctions WHERE id = ? AND seller_id = ?";
         $stmt = $this->conn->prepare($check_sql);
         $stmt->bind_param("ii", $auction_id, $user_id);
         $stmt->execute();
@@ -354,9 +355,16 @@ class Auction {
             return ['success' => false, 'message' => 'Only active auctions can be edited'];
         }
         
-        $sql = "UPDATE auctions SET title = ?, description = ?, category = ?, end_time = ?";
-        $params = [$title, $description, $category, $end_time];
-        $types = "ssss";
+        // Build update query - end_time is optional (keep original if not provided)
+        $sql = "UPDATE auctions SET title = ?, description = ?, category = ?";
+        $params = [$title, $description, $category];
+        $types = "sss";
+        
+        if ($end_time !== null) {
+            $sql .= ", end_time = ?";
+            $params[] = $end_time;
+            $types .= "s";
+        }
         
         if ($image_url !== null) {
             $sql .= ", image_url = ?";

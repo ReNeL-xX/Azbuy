@@ -28,7 +28,7 @@ ob_start();
     
     <div class="wallet-balance-card">
         <div class="balance-icon">
-            <i class="fas fa-peso-sign"></i>
+            
         </div>
         <div class="balance-info">
             <span class="balance-label">Available Balance</span>
