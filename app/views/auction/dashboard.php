@@ -77,17 +77,22 @@ ob_start();
                      data-endtime="<?php echo strtotime($auction['end_time']); ?>"
                      data-created="<?php echo strtotime($auction['created_at']); ?>">
                     <div class="auction-image">
-                        <?php if ($auction['image_url']): ?>
-                            <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
-                        <?php else: ?>
-                            <img src="https://via.placeholder.com/300x200/1a1a1a/ffd700?text=<?php echo urlencode($auction['title']); ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>">
-                        <?php endif; ?>
-                        <div class="auction-timer">
-                            <i class="fas fa-hourglass-half"></i> 
-                            <span class="countdown" data-endtime="<?php echo $auction['end_time']; ?>"></span>
-                        </div>
-                        <div class="bid-count-badge"><?php echo $auction['bid_count']; ?> bids</div>
-                    </div>
+    <?php if (!empty($auction['image_url'])): ?>
+        <?php 
+        // Build correct URL - NO public folder in image path
+        $clean_url = ltrim($auction['image_url'], '/');
+        $image_src = 'https://azbuy.bsit2a.com/' . $clean_url;
+        ?>
+        <img src="<?php echo $image_src; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://placehold.co/400x300/1a1a1a/gold?text=No+Image'">
+    <?php else: ?>
+        <img src="https://placehold.co/400x300/1a1a1a/gold?text=No+Image" alt="<?php echo htmlspecialchars($auction['title']); ?>">
+    <?php endif; ?>
+    <div class="auction-timer">
+        <i class="fas fa-hourglass-half"></i> 
+        <span class="countdown" data-endtime="<?php echo $auction['end_time']; ?>"></span>
+    </div>
+    <div class="bid-count-badge"><?php echo $auction['bid_count']; ?> bids</div>
+</div>
                     <div class="auction-info">
                         <h3><?php echo htmlspecialchars($auction['title']); ?></h3>
                         <p class="seller">by <?php echo htmlspecialchars($auction['seller_name']); ?></p>
@@ -136,7 +141,6 @@ ob_start();
     color: var(--text-secondary);
 }
 
-/* Filter Bar Styles */
 .filter-bar {
     display: flex;
     gap: 1rem;
@@ -327,6 +331,43 @@ ob_start();
     text-align: center;
 }
 
+.btn-primary, .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 28px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: var(--gradient-gold);
+    color: #000000;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary-gold);
+    border: 2px solid var(--primary-gold);
+}
+
+.btn-secondary:hover {
+    background: var(--primary-gold);
+    color: #000000;
+    transform: translateY(-2px);
+}
+
 .no-results {
     text-align: center;
     padding: 4rem;
@@ -450,7 +491,6 @@ function initCountdowns() {
     });
 }
 
-// Filter and Search Functionality
 function filterAuctions() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const categoryFilter = document.getElementById('categoryFilter').value;
@@ -460,7 +500,6 @@ function filterAuctions() {
     let visibleCount = 0;
     const auctionsArray = [];
     
-    // First collect all auctions with their visibility
     auctionCards.forEach(card => {
         const title = card.dataset.title;
         const category = card.dataset.category;
@@ -471,17 +510,14 @@ function filterAuctions() {
         
         let show = true;
         
-        // Search filter
         if (searchTerm && !title.includes(searchTerm)) {
             show = false;
         }
         
-        // Category filter
         if (show && categoryFilter !== 'all' && category !== categoryFilter) {
             show = false;
         }
         
-        // Store for sorting
         auctionsArray.push({
             card: card,
             show: show,
@@ -494,7 +530,6 @@ function filterAuctions() {
         });
     });
     
-    // Sort the array
     auctionsArray.sort((a, b) => {
         switch(sortFilter) {
             case 'price_asc':
@@ -511,7 +546,6 @@ function filterAuctions() {
         }
     });
     
-    // Apply sorted order and visibility
     const grid = document.getElementById('auctionsGrid');
     const noResults = document.getElementById('noResults');
     
@@ -525,10 +559,8 @@ function filterAuctions() {
         grid.appendChild(item.card);
     });
     
-    // Update results count
     document.getElementById('resultsCount').innerText = visibleCount;
     
-    // Show/hide no results message
     if (visibleCount === 0) {
         noResults.style.display = 'block';
     } else {
@@ -536,12 +568,10 @@ function filterAuctions() {
     }
 }
 
-// Event listeners
 document.getElementById('searchInput').addEventListener('input', filterAuctions);
 document.getElementById('categoryFilter').addEventListener('change', filterAuctions);
 document.getElementById('sortFilter').addEventListener('change', filterAuctions);
 
-// Initialize
 initCountdowns();
 filterAuctions();
 </script>

@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_admin'])) {
     exit;
 }
 
+// Hardcode base URL for Hostinger
+$base_url = 'https://azbuy.bsit2a.com/public';
+
 // Create a new database connection for the view
 require_once dirname(__DIR__) . '/../../config/Database.php';
 $db_conn = new Database();
@@ -109,15 +112,22 @@ ob_start();
                                 data-status="<?php echo $auction['status']; ?>"
                                 data-category="<?php echo $auction['category']; ?>">
                                 <td data-label="ID"><?php echo $auction['id']; ?></td>
-                                <td data-label="Image">
-                                    <?php if ($auction['image_url']): ?>
-                                        <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" class="auction-image">
-                                    <?php else: ?>
-                                        <div class="no-image">
-                                            <i class="fas fa-image"></i>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
+                               <td data-label="Image">
+    <?php if (!empty($auction['image_url'])): ?>
+        <?php 
+        // Remove any leading slashes or public references
+        $clean_url = ltrim($auction['image_url'], '/');
+        $clean_url = str_replace('public/', '', $clean_url);
+        // Build correct URL - NO /public in the path
+        $image_src = 'https://azbuy.bsit2a.com/' . $clean_url;
+        ?>
+        <img src="<?php echo $image_src; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" class="auction-image" onerror="this.style.display='none'">
+    <?php else: ?>
+        <div class="no-image">
+            <i class="fas fa-image"></i>
+        </div>
+    <?php endif; ?>
+</td>
                                 <td data-label="Title"><?php echo htmlspecialchars(substr($auction['title'], 0, 40)); ?>...</td>
                                 <td data-label="Seller"><?php echo htmlspecialchars($auction['seller_name']); ?></td>
                                 <td data-label="Starting Price" class="price">₱<?php echo number_format($auction['starting_price'], 2); ?></td>
@@ -220,7 +230,6 @@ ob_start();
     border: 1px solid var(--border-color);
 }
 
-/* Filter Bar */
 .filter-bar {
     display: flex;
     gap: 1rem;
@@ -483,17 +492,14 @@ function filterAuctions() {
         
         let show = true;
         
-        // Search filter
         if (searchTerm && !title.includes(searchTerm) && !seller.includes(searchTerm)) {
             show = false;
         }
         
-        // Status filter
         if (show && statusFilter !== 'all' && status !== statusFilter) {
             show = false;
         }
         
-        // Category filter
         if (show && categoryFilter !== 'all' && category !== categoryFilter) {
             show = false;
         }
@@ -520,7 +526,6 @@ document.getElementById('searchInput').addEventListener('input', filterAuctions)
 document.getElementById('statusFilter').addEventListener('change', filterAuctions);
 document.getElementById('categoryFilter').addEventListener('change', filterAuctions);
 
-// Initial count
 filterAuctions();
 </script>
 

@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Make sure $base_url is available from header.php
+global $base_url;
+
 // Get user data from database
 require_once dirname(__DIR__) . '/../models/User.php';
 require_once dirname(__DIR__) . '/../../config/Database.php';
@@ -27,13 +30,20 @@ ob_start();
         <div class="settings-sidebar">
             <div class="profile-summary">
                 <div class="profile-avatar-wrapper">
-                    <div class="profile-avatar" id="profileAvatar">
-                        <?php if ($profile_pic): ?>
-                            <img src="/AzBuy/public/<?php echo $profile_pic; ?>" alt="Profile Picture">
-                        <?php else: ?>
-                            <i class="fas fa-user-circle"></i>
-                        <?php endif; ?>
-                    </div>
+                   <div class="profile-avatar" id="profileAvatar">
+    <?php 
+    $profile_image_url = '';
+    if (!empty($profile_pic) && $profile_pic != 'default.jpg') {
+        $clean_pic = ltrim($profile_pic, '/');
+        $profile_image_url = 'https://azbuy.bsit2a.com/' . $clean_pic;
+    }
+    ?>
+    <?php if ($profile_image_url): ?>
+        <img src="<?php echo $profile_image_url; ?>" alt="Profile Picture" onerror="this.src='https://placehold.co/120x120/1a1a1a/gold?text=?'">
+    <?php else: ?>
+        <i class="fas fa-user-circle"></i>
+    <?php endif; ?>
+</div>
                     
                     <form action="index.php?action=upload-profile-pic" method="POST" enctype="multipart/form-data" id="avatarForm">
                         <input type="file" name="profile_pic" id="avatarUpload" accept="image/*" style="display: none;">
@@ -57,6 +67,7 @@ ob_start();
                 <a href="#" class="active" data-tab="profile"><i class="fas fa-user"></i> Profile Information</a>
                 <a href="#" data-tab="security"><i class="fas fa-shield-alt"></i> Security</a>
                 <a href="#" data-tab="wallet"><i class="fas fa-wallet"></i> Wallet & Payments</a>
+                <a href="index.php?action=2fa-setup"><i class="fas fa-shield-alt"></i> Two-Factor Authentication</a>
             </div>
         </div>
         
@@ -72,7 +83,7 @@ ob_start();
                             <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name'] ?? ''); ?>" placeholder="Your full name">
                         </div>
                         <div class="form-group">
-                            <label><i class="fa-solid fa-address-card"></i></i> Username</label>
+                            <label><i class="fa-solid fa-address-card"></i> Username</label>
                             <input type="text" value="<?php echo htmlspecialchars($user['username']); ?>" disabled>
                             <small>Username cannot be changed</small>
                         </div>
@@ -97,7 +108,7 @@ ob_start();
                     
                     <div class="form-group">
                         <label><i class="fas fa-info-circle"></i> Bio</label>
-                        <textarea id="bio" name="bio" rows="2" placeholder="Tell other bidders about yourself..."><?php echo htmlspecialchars($user['bio'] ?? 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨'); ?></textarea>
+                        <textarea name="bio" rows="2" placeholder="Tell other bidders about yourself..."><?php echo htmlspecialchars($user['bio'] ?? 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨'); ?></textarea>
                     </div>
                     
                     <div class="button-group">
@@ -244,7 +255,6 @@ ob_start();
 </div>
 
 <style>
-/* Settings Container */
 .settings-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -256,14 +266,12 @@ ob_start();
     margin-bottom: 2rem;
 }
 
-/* Settings Grid */
 .settings-grid {
     display: grid;
     grid-template-columns: 300px 1fr;
     gap: 2rem;
 }
 
-/* Sidebar */
 .settings-sidebar {
     background: var(--dark-elevated);
     border-radius: 20px;
@@ -355,7 +363,6 @@ ob_start();
     margin-right: 8px;
 }
 
-/* Settings Navigation */
 .settings-nav {
     margin-top: 1.5rem;
 }
@@ -378,7 +385,6 @@ ob_start();
     color: var(--primary-gold);
 }
 
-/* Content Area */
 .settings-content {
     background: var(--dark-elevated);
     border-radius: 20px;
@@ -401,7 +407,6 @@ ob_start();
     font-size: 1.5rem;
 }
 
-/* Form Elements */
 .form-group {
     margin-bottom: 1.5rem;
 }
@@ -464,7 +469,6 @@ ob_start();
     margin-top: 1.5rem;
 }
 
-/* Buttons */
 .btn-primary, .btn-secondary, .btn-danger {
     padding: 12px 24px;
     border-radius: 8px;
@@ -515,7 +519,6 @@ ob_start();
     font-size: 12px;
 }
 
-/* Form Info */
 .form-info {
     margin-top: 2rem;
     padding: 1.2rem;
@@ -546,7 +549,6 @@ ob_start();
     width: 25px;
 }
 
-/* Password Strength */
 .password-strength {
     margin-top: 0.5rem;
 }
@@ -566,7 +568,6 @@ ob_start();
     border-radius: 4px;
 }
 
-/* Wallet Balance */
 .wallet-balance {
     text-align: center;
     padding: 2rem;
@@ -582,7 +583,6 @@ ob_start();
     margin: 0.5rem 0;
 }
 
-/* Payment Card */
 .payment-card {
     display: flex;
     align-items: center;
@@ -599,7 +599,6 @@ ob_start();
     color: var(--primary-gold);
 }
 
-/* Transactions Table */
 .transactions-table {
     width: 100%;
     border-collapse: collapse;
@@ -656,7 +655,6 @@ ob_start();
     margin-bottom: 0.5rem;
 }
 
-/* Toast Animation */
 @keyframes slideInRight {
     from {
         opacity: 0;
@@ -673,7 +671,6 @@ ob_start();
     to { opacity: 1; }
 }
 
-/* Responsive */
 @media (max-width: 1024px) {
     .settings-grid {
         grid-template-columns: 1fr;
@@ -728,50 +725,33 @@ ob_start();
         font-size: 3rem;
     }
 }
-
-@media (max-width: 480px) {
-    .wallet-balance .balance-amount {
-        font-size: 1.8rem;
-    }
-    
-    .transactions-table th,
-    .transactions-table td {
-        padding: 8px;
-        font-size: 12px;
-    }
-}
 </style>
 
 <script>
-// Profile Functions
 function resetProfile() {
     document.querySelector('input[name="full_name"]').value = '';
     document.querySelector('input[name="phone"]').value = '';
     document.querySelector('textarea[name="address"]').value = '';
-    document.getElementById('bio').value = 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨';
+    document.querySelector('textarea[name="bio"]').value = 'Avid collector and vintage enthusiast. Looking for unique pieces from around the world! ✨';
     showToast('Profile reset to default');
 }
 
-// Avatar Upload - Auto submit when file selected
 document.getElementById('avatarUpload')?.addEventListener('change', function(e) {
     if (this.files.length > 0) {
         const file = this.files[0];
         
-        // Check file size (max 2MB)
         if (file.size > 2 * 1024 * 1024) {
             showToast('Image size must be less than 2MB', 'error');
             this.value = '';
             return;
         }
         
-        // Check file type
         if (!file.type.match('image.*')) {
             showToast('Please select an image file', 'error');
             this.value = '';
             return;
         }
         
-        // Show preview before upload
         const reader = new FileReader();
         reader.onload = function(e) {
             const profileAvatar = document.querySelector('.profile-avatar');
@@ -779,12 +759,10 @@ document.getElementById('avatarUpload')?.addEventListener('change', function(e) 
         };
         reader.readAsDataURL(file);
         
-        // Submit the form
         document.getElementById('avatarForm').submit();
     }
 });
 
-// Password strength checker
 document.getElementById('newPassword')?.addEventListener('input', function() {
     const password = this.value;
     const strengthText = document.getElementById('strengthText');
@@ -813,7 +791,6 @@ document.getElementById('newPassword')?.addEventListener('input', function() {
     else strengthBar.style.background = '#28A745';
 });
 
-// Wallet Functions
 function addPaymentMethod() {
     showToast('Payment method form would open here');
 }
@@ -825,7 +802,6 @@ function removePaymentMethod(button) {
     }
 }
 
-// Toast Notification
 function showToast(message, type = 'success') {
     const toast = document.getElementById('successToast');
     const toastMessage = document.getElementById('toastMessage');
@@ -848,7 +824,6 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Settings Tabs
 document.querySelectorAll('.settings-nav a').forEach(tab => {
     tab.addEventListener('click', (e) => {
         e.preventDefault();
@@ -870,7 +845,5 @@ $content = ob_get_clean();
 require_once dirname(__DIR__) . '/layouts/header.php';
 echo $content;
 require_once dirname(__DIR__) . '/layouts/footer.php';
-
-// Close the connection at the very end
 $conn->close();
 ?>

@@ -1,6 +1,9 @@
 <?php 
 $page_title = "Home";
 
+// Hardcode base URL for Hostinger
+$base_url = 'https://azbuy.bsit2a.com/public';
+
 // Get active auctions from database
 require_once dirname(__DIR__) . '/../models/Auction.php';
 require_once dirname(__DIR__) . '/../../config/Database.php';
@@ -78,11 +81,15 @@ ob_start();
             <?php foreach ($featured_auctions as $auction): ?>
                 <div class="auction-card">
                     <div class="auction-image">
-                        <?php if ($auction['image_url']): ?>
-                            <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/300x200/1a1a1a/ffd700?text=No+Image'">
-                        <?php else: ?>
-                            <img src="https://via.placeholder.com/300x200/1a1a1a/ffd700?text=<?php echo urlencode($auction['title']); ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>">
-                        <?php endif; ?>
+                        <?php if (!empty($auction['image_url'])): ?>
+    <?php 
+    $clean_url = ltrim($auction['image_url'], '/');
+    $image_src = 'https://azbuy.bsit2a.com/' . $clean_url;
+    ?>
+    <img src="<?php echo $image_src; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://placehold.co/400x300/1a1a1a/gold?text=No+Image'">
+<?php else: ?>
+    <img src="https://placehold.co/400x300/1a1a1a/gold?text=No+Image" alt="<?php echo htmlspecialchars($auction['title']); ?>">
+<?php endif; ?>
                         <div class="auction-timer">
                             <i class="fas fa-hourglass-half"></i> 
                             <span class="countdown" data-endtime="<?php echo $auction['end_time']; ?>"></span>
@@ -137,7 +144,6 @@ ob_start();
 </div>
 
 <style>
-/* Hero Section */
 .hero-section {
     position: relative;
     min-height: 90vh;
@@ -184,7 +190,6 @@ ob_start();
     animation: fadeInUp 0.8s ease 0.4s backwards;
 }
 
-/* Features Section - HORIZONTAL ROW */
 .features-section {
     padding: 5rem 2rem;
     background: var(--dark-card);
@@ -275,7 +280,6 @@ ob_start();
     font-size: 0.9rem;
 }
 
-/* Featured Auctions */
 .featured-auctions {
     padding: 4rem 2rem;
     max-width: 1400px;
@@ -404,7 +408,6 @@ ob_start();
     color: var(--text-muted);
 }
 
-/* Stats Section */
 .stats-section {
     background: linear-gradient(135deg, var(--dark-card) 0%, var(--dark-bg) 100%);
     padding: 4rem 2rem;
@@ -451,7 +454,6 @@ ob_start();
     color: var(--text-muted);
 }
 
-/* Buttons */
 .btn-primary, .btn-secondary {
     display: inline-flex;
     align-items: center;
@@ -497,7 +499,6 @@ ob_start();
     text-align: center;
 }
 
-/* Animations */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -509,7 +510,6 @@ ob_start();
     }
 }
 
-/* Responsive */
 @media (max-width: 1024px) {
     .features-grid.horizontal {
         gap: 1.5rem;
@@ -566,7 +566,6 @@ ob_start();
 </style>
 
 <script>
-// Countdown timers for featured auctions
 function initHomeCountdowns() {
     const countdowns = document.querySelectorAll('.countdown');
     countdowns.forEach(el => {

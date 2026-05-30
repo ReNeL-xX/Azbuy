@@ -146,7 +146,7 @@ class UserController {
     }
 
 
-    public function uploadProfilePicture() {
+   public function uploadProfilePicture() {
     if (!isset($_SESSION['user_id'])) {
         header('Location: index.php?action=login');
         exit;
@@ -180,7 +180,9 @@ class UserController {
         exit;
     }
     
-    $upload_dir = __DIR__ . '/../../public/assets/uploads/profiles/';
+   // CORRECT PATH FOR HOSTINGER - NO AzBuy folder
+$upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/assets/uploads/profiles/';
+    
     if (!is_dir($upload_dir)) {
         mkdir($upload_dir, 0777, true);
     }
@@ -191,11 +193,11 @@ class UserController {
     if (move_uploaded_file($file['tmp_name'], $target_file)) {
         $conn = $this->connectDB();
         $userModel = new User($conn);
+        // Store correct relative path
         $image_path = 'assets/uploads/profiles/' . $new_filename;
         
         if ($userModel->updateProfilePicture($_SESSION['user_id'], $image_path)) {
             $_SESSION['success'] = 'Profile picture updated successfully!';
-            // Update session if needed
         } else {
             $_SESSION['error'] = 'Failed to update profile picture';
         }

@@ -38,7 +38,7 @@ class AuctionController {
         require_once __DIR__ . '/../views/auction/create_auction.php';
     }
     
-        public function createAuction() {
+    public function createAuction() {
         if (!isset($_SESSION['user_id'])) {
             header('Location: index.php?action=login');
             exit;
@@ -87,34 +87,43 @@ class AuctionController {
         }
         
         // Handle image upload
-        $image_url = null;
-        if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            $filename = $_FILES['image']['name'];
-            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-            
-            if (!in_array($ext, $allowed)) {
-                $_SESSION['error'] = 'Only JPG, PNG, GIF, and WEBP images are allowed';
-                header('Location: index.php?action=create-auction');
-                exit;
-            }
-            
-            $upload_dir = __DIR__ . '/../../public/assets/uploads/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-            
-            $new_filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
-            $target_file = $upload_dir . $new_filename;
-            
-            if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
-                $image_url = 'assets/uploads/' . $new_filename;
-            } else {
-                $_SESSION['error'] = 'Failed to upload image';
-                header('Location: index.php?action=create-auction');
-                exit;
-            }
-        }
+       $image_url = null;
+if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+    $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    $filename = $_FILES['image']['name'];
+    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    
+    if (!in_array($ext, $allowed)) {
+        $_SESSION['error'] = 'Only JPG, PNG, GIF, and WEBP images are allowed';
+        header('Location: index.php?action=create-auction');
+        exit;
+    }
+    
+    if ($_FILES['image']['size'] > 5 * 1024 * 1024) {
+        $_SESSION['error'] = 'Image size must be less than 5MB';
+        header('Location: index.php?action=create-auction');
+        exit;
+    }
+    
+    // CORRECT PATH - NO AzBuy folder
+    $upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/assets/uploads/';
+    
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0777, true);
+    }
+    
+    $new_filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
+    $target_file = $upload_dir . $new_filename;
+    
+    if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
+        // Store relative path from web root
+        $image_url = 'assets/uploads/' . $new_filename;
+    } else {
+        $_SESSION['error'] = 'Failed to upload image. Please check folder permissions.';
+        header('Location: index.php?action=create-auction');
+        exit;
+    }
+}
         
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
@@ -359,8 +368,6 @@ class AuctionController {
         $description = trim($_POST['description'] ?? '');
         $category = $_POST['category'] ?? '';
         
-        // REMOVED: duration_hours - end time cannot be changed
-        
         // Validation
         $errors = [];
         if (empty($title)) {
@@ -389,7 +396,20 @@ class AuctionController {
             $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
             
             if (in_array($ext, $allowed)) {
-                $upload_dir = __DIR__ . '/../../public/assets/uploads/';
+                // Check file size (max 5MB)
+                if ($_FILES['image']['size'] > 5 * 1024 * 1024) {
+                    $_SESSION['error'] = 'Image size must be less than 5MB';
+                    header('Location: index.php?action=edit-auction&id=' . $auction_id);
+                    exit;
+                }
+                
+                // CORRECT PATH FOR HOSTINGER
+                $upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/assets/uploads/';
+                
+                if (!is_dir($upload_dir)) {
+                    $upload_dir = dirname(__DIR__, 2) . '/public/assets/uploads/';
+                }
+                
                 if (!is_dir($upload_dir)) {
                     mkdir($upload_dir, 0777, true);
                 }
@@ -404,7 +424,7 @@ class AuctionController {
         $conn = $this->connectDB();
         $auctionModel = new Auction($conn);
         
-        // REMOVED: end_time parameter - keep original end time
+        // Keep original end time
         $result = $auctionModel->updateAuction($auction_id, $_SESSION['user_id'], $title, $description, $category, null, $image_url);
         $conn->close();
         

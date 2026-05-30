@@ -1,5 +1,8 @@
 <?php 
 $page_title = $profile['username'] . "'s Profile";
+
+// Make sure $base_url is available from header.php
+global $base_url;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -7,7 +10,7 @@ $page_title = $profile['username'] . "'s Profile";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AzBuy - <?php echo htmlspecialchars($profile['username']); ?>'s Profile</title>
-    <link rel="stylesheet" href="/AzBuy/public/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo $base_url; ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -117,6 +120,25 @@ $page_title = $profile['username'] . "'s Profile";
             margin-top: 1rem;
         }
         
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: transparent;
+            color: var(--primary-gold);
+            border: 1px solid var(--primary-gold);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 215, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
         @media (max-width: 768px) {
             .profile-container {
                 padding: 1rem;
@@ -151,12 +173,19 @@ $page_title = $profile['username'] . "'s Profile";
             <!-- Profile Header -->
             <div class="profile-header">
                 <div class="profile-avatar-large">
-                    <?php if (!empty($profile['profile_pic'])): ?>
-                        <img src="/AzBuy/public/<?php echo $profile['profile_pic']; ?>" alt="<?php echo htmlspecialchars($profile['username']); ?>">
-                    <?php else: ?>
-                        <i class="fas fa-user-circle"></i>
-                    <?php endif; ?>
-                </div>
+    <?php 
+    $profile_avatar_url = '';
+    if (!empty($profile['profile_pic']) && $profile['profile_pic'] != 'default.jpg') {
+        $clean_pic = ltrim($profile['profile_pic'], '/');
+        $profile_avatar_url = 'https://azbuy.bsit2a.com/' . $clean_pic;
+    }
+    ?>
+    <?php if ($profile_avatar_url): ?>
+        <img src="<?php echo $profile_avatar_url; ?>" alt="<?php echo htmlspecialchars($profile['username']); ?>" onerror="this.src='https://placehold.co/120x120/1a1a1a/gold?text=?'">
+    <?php else: ?>
+        <i class="fas fa-user-circle"></i>
+    <?php endif; ?>
+</div>
                 <div class="profile-info">
                     <h1><?php echo htmlspecialchars($profile['full_name'] ?? $profile['username']); ?></h1>
                     <div class="username"><?php echo htmlspecialchars($profile['username']); ?></div>
@@ -211,7 +240,7 @@ $page_title = $profile['username'] . "'s Profile";
             <?php endif; ?>
             
             <div class="btn-back">
-                <a href="javascript:history.back()" class="btn btn-secondary">
+                <a href="javascript:history.back()" class="btn-secondary">
                     <i class="fas fa-arrow-left"></i> Go Back
                 </a>
             </div>

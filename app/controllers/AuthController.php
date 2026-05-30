@@ -160,60 +160,59 @@ class AuthController {
         exit;
     }
     
-    public function process2FASetup() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=login');
-            exit;
-        }
-        
-        $code = trim($_POST['code'] ?? '');
-        $userId = $_SESSION['2fa_pending_user_id'] ?? null;
-        $tempSecret = $_SESSION['2fa_temp_secret'] ?? null;
-        
-        if (!$userId || !$tempSecret) {
-            $_SESSION['error'] = 'Invalid 2FA setup. Please login again.';
-            header('Location: index.php?action=login');
-            exit;
-        }
-        
-        $twoFactorAuth = new TwoFactorAuth();
-        
-        if ($twoFactorAuth->verifyCode($tempSecret, $code)) {
-            $conn = $this->connectDB();
-            $userModel = new User($conn);
-            
-            // Enable 2FA for the user
-            $userModel->enableTwoFactor($userId, $tempSecret);
-            $conn->close();
-            
-            // Complete login
-            $userData = $_SESSION['2fa_pending_user_data'];
-            $_SESSION['user_id'] = $userData['id'];
-            $_SESSION['username'] = $userData['username'];
-            $_SESSION['user_email'] = $userData['email'];
-            $_SESSION['user_balance'] = $userData['balance'];
-            
-            if ($userData['is_admin']) {
-                $_SESSION['is_admin'] = true;
-            }
-            
-            // Clear 2FA session data
-            unset($_SESSION['2fa_pending_user_id']);
-            unset($_SESSION['2fa_pending_user_data']);
-            unset($_SESSION['2fa_temp_secret']);
-            unset($_SESSION['2fa_qr_code']);
-            unset($_SESSION['2fa_mode']);
-            
-            // Redirect directly to home page
-            $_SESSION['success'] = 'Welcome to AzBuy, ' . $userData['username'] . '! Your account is now secured with 2FA.';
-            header('Location: index.php?action=dashboard');
-            exit;
-        } else {
-            $_SESSION['error'] = 'Invalid verification code. Please try again.';
-            header('Location: index.php?action=login');
-            exit;
-        }
+   public function process2FASetup() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Location: index.php?action=login');
+        exit;
     }
+    
+    $code = trim($_POST['code'] ?? '');
+    $userId = $_SESSION['2fa_pending_user_id'] ?? null;
+    $tempSecret = $_SESSION['2fa_temp_secret'] ?? null;
+    
+    if (!$userId || !$tempSecret) {
+        $_SESSION['error'] = 'Invalid 2FA setup. Please login again.';
+        header('Location: index.php?action=login');
+        exit;
+    }
+    
+    $twoFactorAuth = new TwoFactorAuth();
+    
+    if ($twoFactorAuth->verifyCode($tempSecret, $code)) {
+        $conn = $this->connectDB();
+        $userModel = new User($conn);
+        
+        // Enable 2FA for the user
+        $userModel->enableTwoFactor($userId, $tempSecret);
+        $conn->close();
+        
+        // Complete login
+        $userData = $_SESSION['2fa_pending_user_data'];
+        $_SESSION['user_id'] = $userData['id'];
+        $_SESSION['username'] = $userData['username'];
+        $_SESSION['user_email'] = $userData['email'];
+        $_SESSION['user_balance'] = $userData['balance'];
+        
+        if ($userData['is_admin']) {
+            $_SESSION['is_admin'] = true;
+        }
+        
+        // Clear 2FA session data
+        unset($_SESSION['2fa_pending_user_id']);
+        unset($_SESSION['2fa_pending_user_data']);
+        unset($_SESSION['2fa_temp_secret']);
+        unset($_SESSION['2fa_qr_code']);
+        unset($_SESSION['2fa_mode']);
+        
+        $_SESSION['success'] = 'Welcome to AzBuy, ' . $userData['username'] . '! Your account is now secured with 2FA.';
+        header('Location: index.php?action=dashboard');
+        exit;
+    } else {
+        $_SESSION['error'] = 'Invalid verification code. Please try again.';
+        header('Location: index.php?action=login');
+        exit;
+    }
+}
     
     public function process2FAVerify() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

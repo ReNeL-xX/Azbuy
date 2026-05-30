@@ -1,11 +1,14 @@
 <?php 
 $page_title = "2FA Setup Required";
 
+// Hardcode base URL for Hostinger
+$base_url = 'https://azbuy.bsit2a.com/public';
+
 // Get the secret and email from session
 $secret = $_SESSION['2fa_temp_secret'] ?? '';
 $email = $_SESSION['2fa_pending_user_data']['email'] ?? '';
 
-// Generate QR code using the package
+// Generate QR code
 $twoFactorAuth = new TwoFactorAuth();
 $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
 ?>
@@ -15,7 +18,6 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>AzBuy - 2FA Setup Required</title>
-    <link rel="stylesheet" href="/AzBuy/public/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -42,8 +44,8 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         .verification-card {
             background: #1A1A1A;
             border-radius: 24px;
-            padding: 2.5rem;
-            max-width: 500px;
+            padding: 2rem;
+            max-width: 450px;
             width: 100%;
             border: 1px solid rgba(255, 215, 0, 0.2);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -53,40 +55,33 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         .verification-card h2 {
             color: #FFD700;
             margin-bottom: 0.5rem;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
         
         .verification-card > p {
             color: #B0B0B0;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin-bottom: 1.5rem;
         }
         
         .qr-section {
             text-align: center;
             margin: 1rem 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
         
         .qr-code-wrapper {
             background: white;
             padding: 1rem;
             border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-block;
             margin: 0 auto;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
         
         .qr-code-wrapper img {
-            width: 220px;
-            height: 220px;
+            width: 200px;
+            height: 200px;
             display: block;
-            margin: 0 auto;
         }
         
         .form-group {
@@ -108,14 +103,14 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         
         .code-input {
             width: 100%;
-            padding: 15px;
+            padding: 14px;
             background: #0A0A0A;
             border: 1px solid rgba(255, 215, 0, 0.2);
             border-radius: 12px;
             color: #FFFFFF;
-            font-size: 2rem;
+            font-size: 1.5rem;
             text-align: center;
-            letter-spacing: 10px;
+            letter-spacing: 8px;
             font-family: monospace;
         }
         
@@ -128,7 +123,7 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         .btn-primary {
             background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
             color: #000000;
-            padding: 14px 28px;
+            padding: 12px 24px;
             border-radius: 50px;
             font-weight: bold;
             cursor: pointer;
@@ -153,7 +148,7 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         .timer {
             text-align: center;
             margin-top: 1rem;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #B0B0B0;
         }
         
@@ -161,28 +156,27 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
             background: rgba(255, 193, 7, 0.15);
             border: 1px solid rgba(255, 193, 7, 0.3);
             color: #ffc107;
-            padding: 0.8rem 1rem;
+            padding: 0.8rem;
             border-radius: 12px;
             margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
             gap: 10px;
             text-align: left;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
         
         .alert-warning i {
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
         
         .alert-warning strong {
             display: block;
-            margin-bottom: 2px;
         }
         
         .app-buttons {
             display: flex;
-            gap: 1rem;
+            gap: 0.8rem;
             justify-content: center;
             margin-bottom: 1.5rem;
         }
@@ -190,14 +184,14 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
         .app-btn {
             color: #FFD700;
             text-decoration: none;
-            font-size: 0.75rem;
-            padding: 6px 12px;
+            font-size: 0.7rem;
+            padding: 5px 10px;
             border-radius: 50px;
             background: rgba(255, 215, 0, 0.1);
             transition: all 0.3s;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             border: 1px solid rgba(255, 215, 0, 0.2);
         }
         
@@ -211,13 +205,9 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
                 padding: 1.5rem;
             }
             
-            .qr-code-wrapper {
-                padding: 0.8rem;
-            }
-            
             .qr-code-wrapper img {
-                width: 180px;
-                height: 180px;
+                width: 160px;
+                height: 160px;
             }
             
             .code-input {
@@ -258,7 +248,7 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
             </div>
             
             <div class="icon-center">
-                <i class="fas fa-qrcode" style="font-size: 2.5rem; color: #FFD700;"></i>
+                <i class="fas fa-qrcode" style="font-size: 2rem; color: #FFD700;"></i>
             </div>
             <h2>Setup Google Authenticator</h2>
             <p>Scan the QR code with your authenticator app</p>
@@ -284,7 +274,6 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
     </div>
     
     <script>
-        // Timer for code refresh
         let timeLeft = 30;
         const timerElement = document.getElementById('timer');
         
@@ -303,7 +292,6 @@ $qrCodeHtml = $twoFactorAuth->generateQRCodeHtml($email, $secret);
             updateTimer();
         }
         
-        // Auto-submit when 6 digits are entered
         const codeInput = document.querySelector('input[name="code"]');
         if (codeInput) {
             codeInput.addEventListener('input', function(e) {

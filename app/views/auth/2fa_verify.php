@@ -1,9 +1,11 @@
 <?php 
 $page_title = "Two-Factor Authentication";
 
+// Hardcode base URL for Hostinger
+$base_url = 'https://azbuy.bsit2a.com/public';
+
 // Get the user data from session
 $email = $_SESSION['2fa_pending_user_data']['email'] ?? '';
-$secret = $_SESSION['2fa_pending_user_data']['two_factor_secret'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -11,7 +13,7 @@ $secret = $_SESSION['2fa_pending_user_data']['two_factor_secret'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>AzBuy - 2FA Verification</title>
-    <link rel="stylesheet" href="/AzBuy/public/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo $base_url; ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -126,6 +128,20 @@ $secret = $_SESSION['2fa_pending_user_data']['two_factor_secret'] ?? '';
             box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
         }
         
+        .backup-link {
+            margin-top: 1rem;
+        }
+        
+        .backup-link a {
+            color: #FFD700;
+            text-decoration: none;
+            font-size: 0.8rem;
+        }
+        
+        .backup-link a:hover {
+            text-decoration: underline;
+        }
+        
         @media (max-width: 480px) {
             .verification-card {
                 padding: 1.5rem;
@@ -161,6 +177,10 @@ $secret = $_SESSION['2fa_pending_user_data']['two_factor_secret'] ?? '';
                 
                 <button type="submit" class="btn-primary">Verify & Login</button>
             </form>
+            
+            <div class="backup-link">
+                <a href="javascript:void(0)" onclick="showBackupCodeInput()">Use a backup code instead</a>
+            </div>
         </div>
     </div>
     
@@ -173,6 +193,20 @@ $secret = $_SESSION['2fa_pending_user_data']['two_factor_secret'] ?? '';
                     this.form.submit();
                 }
             });
+        }
+        
+        function showBackupCodeInput() {
+            const formGroup = document.querySelector('.form-group');
+            const label = formGroup.querySelector('label');
+            label.innerHTML = '<i class="fas fa-key"></i> Backup Code (XXXX-XXXX)';
+            
+            const input = formGroup.querySelector('input');
+            input.placeholder = '1234-5678';
+            input.maxLength = 9;
+            input.pattern = '[0-9]{4}-[0-9]{4}';
+            
+            const backupLink = document.querySelector('.backup-link');
+            backupLink.style.display = 'none';
         }
     </script>
 </body>

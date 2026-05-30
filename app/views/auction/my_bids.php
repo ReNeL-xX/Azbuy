@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Make sure $base_url is available from header.php
+global $base_url;
+
 // Force check for expired payments on page load
 require_once dirname(__DIR__) . '/../models/Auction.php';
 require_once dirname(__DIR__) . '/../../config/Database.php';
@@ -119,7 +122,7 @@ ob_start();
                             <td class="item-cell" style="text-align: left;">
                                 <div class="item-info">
                                     <?php if (isset($bid['image_url']) && $bid['image_url']): ?>
-                                        <img src="/AzBuy/public/<?php echo $bid['image_url']; ?>" alt="<?php echo htmlspecialchars($bid['title']); ?>">
+                                        <img src="<?php echo $base_url; ?>/<?php echo $bid['image_url']; ?>" alt="<?php echo htmlspecialchars($bid['title']); ?>">
                                     <?php else: ?>
                                         <img src="https://via.placeholder.com/50x50/1a1a1a/ffd700?text=<?php echo urlencode(substr($bid['title'], 0, 10)); ?>" alt="<?php echo htmlspecialchars($bid['title']); ?>">
                                     <?php endif; ?>
@@ -128,7 +131,7 @@ ob_start();
                                         <small>Seller: <?php echo isset($bid['seller_id']) && $bid['seller_id'] == $_SESSION['user_id'] ? 'You' : 'Other'; ?></small>
                                     </div>
                                 </div>
-                            </td>
+                             </td>
                             <td class="price" style="text-align: center;">₱<?php echo number_format($bid['amount'], 2); ?></td>
                             <td class="price" style="text-align: center;">₱<?php echo number_format($bid['current_price'], 2); ?></td>
                             <td style="text-align: center;">
@@ -198,7 +201,7 @@ ob_start();
                                     <span class="btn-sm disabled" style="background: #6c757d; color: white; cursor: not-allowed;">Payment Expired</span>
                                 <?php endif; ?>
                             </td>
-                        </tr>
+                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -308,24 +311,21 @@ function cancelBid(bidId, itemTitle) {
 }
 
 function updateCountdowns() {
-    const timeCells = document.querySelectorAll('.time-cell[data-endtime]');
+    const timeCells = document.querySelectorAll('.time-left[data-endtime]');
     
     timeCells.forEach(cell => {
         const endTimeStr = cell.dataset.endtime;
         if (!endTimeStr) return;
         
         const endTime = new Date(endTimeStr).getTime();
-        const timeSpan = cell.querySelector('.time-left');
-        
-        if (!timeSpan) return;
         
         function update() {
             const now = new Date().getTime();
             const distance = endTime - now;
             
             if (distance < 0) {
-                timeSpan.innerHTML = 'Ended';
-                timeSpan.classList.add('ended');
+                cell.innerHTML = 'Ended';
+                cell.classList.add('ended');
                 return;
             }
             
@@ -336,8 +336,7 @@ function updateCountdowns() {
             let display = '';
             if (days > 0) display += days + 'd ';
             display += hours + 'h ' + minutes + 'm';
-            timeSpan.innerHTML = display;
-            timeSpan.classList.remove('ended');
+            cell.innerHTML = display;
         }
         
         update();
@@ -396,6 +395,7 @@ window.onclick = function(event) {
 </script>
 
 <style>
+/* All styles remain the same as your original */
 * {
     margin: 0;
     padding: 0;
@@ -710,14 +710,6 @@ main {
     text-decoration: none !important;
 }
 
-.actions a {
-    text-decoration: none !important;
-}
-
-.actions a:hover {
-    text-decoration: none !important;
-}
-
 .empty-state {
     text-align: center;
     padding: 4rem;
@@ -797,19 +789,6 @@ main {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
-}
-
-::-webkit-scrollbar {
-    width: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--dark-card);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--primary-gold);
-    border-radius: 5px;
 }
 
 @media (max-width: 768px) {

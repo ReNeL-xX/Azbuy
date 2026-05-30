@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Hardcode base URL for Hostinger
+$base_url = 'https://azbuy.bsit2a.com/public';
+
 // Get database connection for bid counts
 require_once dirname(__DIR__) . '/../models/Auction.php';
 require_once dirname(__DIR__) . '/../../config/Database.php';
@@ -71,10 +74,14 @@ ob_start();
                         <tr class="<?php echo $auction['status'] == 'active' ? 'active-row' : 'ended-row'; ?>">
                             <td class="item-cell" style="text-align: left;">
                                 <div class="item-info">
-                                    <?php if ($auction['image_url']): ?>
-                                        <img src="/AzBuy/public/<?php echo $auction['image_url']; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://via.placeholder.com/50x50/1a1a1a/ffd700?text=No+Image'">
+                                    <?php if (!empty($auction['image_url'])): ?>
+                                        <?php 
+                                        $clean_url = ltrim($auction['image_url'], '/');
+                                        $image_src = 'https://azbuy.bsit2a.com/' . $clean_url;
+                                        ?>
+                                        <img src="<?php echo $image_src; ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>" onerror="this.src='https://placehold.co/50x50/1a1a1a/gold?text=No+Image'">
                                     <?php else: ?>
-                                        <img src="https://via.placeholder.com/50x50/1a1a1a/ffd700?text=<?php echo urlencode(substr($auction['title'], 0, 10)); ?>" alt="<?php echo htmlspecialchars($auction['title']); ?>">
+                                        <img src="https://placehold.co/50x50/1a1a1a/gold?text=No+Image" alt="<?php echo htmlspecialchars($auction['title']); ?>">
                                     <?php endif; ?>
                                     <div>
                                         <strong><?php echo htmlspecialchars($auction['title']); ?></strong>
@@ -127,14 +134,12 @@ ob_start();
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     
-                                    <!-- Show edit only for active auctions -->
                                     <?php if ($auction['status'] == 'active'): ?>
                                         <a href="index.php?action=edit-auction&id=<?php echo $auction['id']; ?>" class="btn-icon edit" title="Edit Auction" style="text-decoration: none;">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                     <?php endif; ?>
                                     
-                                    <!-- Show delete for active, ended, and payment_pending auctions -->
                                     <?php if ($auction['status'] == 'active' || $auction['status'] == 'ended' || ($auction['status'] == 'payment_pending')): ?>
                                         <a href="index.php?action=delete-auction&id=<?php echo $auction['id']; ?>" class="btn-icon delete" onclick="return confirm('Delete this auction? This action cannot be undone.')" title="Delete Auction" style="text-decoration: none;">
                                             <i class="fas fa-trash"></i>
@@ -473,7 +478,6 @@ ob_start();
     display: block;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .my-items-container {
         padding: 1rem;
@@ -534,7 +538,6 @@ function filterItems(status) {
     if (event && event.target) event.target.classList.add('active');
 }
 
-// Update countdown timers
 function updateCountdowns() {
     const timeCells = document.querySelectorAll('.time-left[data-endtime]');
     timeCells.forEach(cell => {

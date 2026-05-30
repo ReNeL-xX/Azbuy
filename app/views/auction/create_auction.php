@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Make sure $base_url is available from header.php
+global $base_url;
+
 ob_start();
 ?>
 
@@ -458,6 +461,10 @@ form.addEventListener('submit', function(e) {
     transition: all 0.3s;
     border: none;
     font-size: 14px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-primary {
@@ -474,10 +481,6 @@ form.addEventListener('submit', function(e) {
     background: transparent;
     color: var(--primary-gold);
     border: 1px solid var(--primary-gold);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .btn-secondary:hover {

@@ -1,6 +1,8 @@
 <?php
-// Define base URL for assets
-$base_url = '/AzBuy/public';
+// Force correct base URL for Hostinger
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'];
+$base_url = $protocol . '://' . $host . '/public';
 
 // Get current action to highlight active nav
 $current_action = $_GET['action'] ?? 'home';
@@ -8,7 +10,6 @@ $current_action = $_GET['action'] ?? 'home';
 // Get user profile picture if logged in
 $profile_pic = null;
 if (isset($_SESSION['user_id'])) {
-    // Fix the path - from app/views/layouts/ to root, then to config
     require_once __DIR__ . '/../../../config/Database.php';
     require_once __DIR__ . '/../../../app/models/User.php';
     $db = new Database();
@@ -56,12 +57,10 @@ if (isset($_SESSION['user_id'])) {
             transform: translateY(-2px);
         }
         
-        /* Active state for settings */
         .settings-icon.active i {
             color: var(--primary-gold) !important;
         }
         
-        /* Profile Picture */
         .profile-avatar-header {
             width: 35px;
             height: 35px;
@@ -92,7 +91,6 @@ if (isset($_SESSION['user_id'])) {
             object-fit: cover;
         }
         
-        /* Notification bell styles */
         .notification-bell {
             position: relative;
             cursor: pointer;
@@ -115,7 +113,6 @@ if (isset($_SESSION['user_id'])) {
             color: var(--primary-gold) !important;
         }
         
-        /* Underline effect on hover */
         .settings-icon::after, .logout-icon::after, .notification-bell::after {
             content: '';
             position: absolute;
@@ -136,7 +133,6 @@ if (isset($_SESSION['user_id'])) {
             width: 80%;
         }
         
-        /* Notification dropdown */
         .notification-dropdown {
             display: none;
             position: absolute;
@@ -174,7 +170,6 @@ if (isset($_SESSION['user_id'])) {
                 </a>
             </div>
             <ul class="nav-menu">
-                <!-- Home Link -->
                 <li>
                     <a href="<?php echo $base_url; ?>/index.php?action=home" 
                        class="<?php echo $current_action == 'home' ? 'active' : ''; ?>">
@@ -182,7 +177,6 @@ if (isset($_SESSION['user_id'])) {
                     </a>
                 </li>
                 
-                <!-- About Link -->
                 <li>
                     <a href="<?php echo $base_url; ?>/index.php?action=about" 
                        class="<?php echo $current_action == 'about' ? 'active' : ''; ?>">
@@ -191,9 +185,6 @@ if (isset($_SESSION['user_id'])) {
                 </li>
                 
                 <?php if (isset($_SESSION['user_id'])): ?>
-                    <!-- Show these when user is LOGGED IN -->
-                    
-                    <!-- Dashboard / Marketplace Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=dashboard" 
                            class="<?php echo $current_action == 'dashboard' ? 'active' : ''; ?>">
@@ -201,7 +192,6 @@ if (isset($_SESSION['user_id'])) {
                         </a>
                     </li>
                     
-                    <!-- My Auctions Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=my-auctions" 
                            class="<?php echo $current_action == 'my-auctions' ? 'active' : ''; ?>">
@@ -209,7 +199,6 @@ if (isset($_SESSION['user_id'])) {
                         </a>
                     </li>
                     
-                    <!-- Activities / My Bids Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=my-bids" 
                            class="<?php echo $current_action == 'my-bids' ? 'active' : ''; ?>">
@@ -217,7 +206,6 @@ if (isset($_SESSION['user_id'])) {
                         </a>
                     </li>
                     
-                    <!-- Wallet Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=wallet" 
                            class="<?php echo $current_action == 'wallet' ? 'active' : ''; ?>">
@@ -225,7 +213,6 @@ if (isset($_SESSION['user_id'])) {
                         </a>
                     </li>
                     
-                    <!-- Admin Panel Link - Only visible to admins -->
                     <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true): ?>
                         <li>
                             <a href="<?php echo $base_url; ?>/index.php?action=admin-dashboard" 
@@ -236,9 +223,6 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
                     
                 <?php else: ?>
-                    <!-- Show these when user is LOGGED OUT -->
-                    
-                    <!-- Login Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=login" 
                            class="<?php echo $current_action == 'login' ? 'active' : ''; ?>">
@@ -246,7 +230,6 @@ if (isset($_SESSION['user_id'])) {
                         </a>
                     </li>
                     
-                    <!-- Register Link -->
                     <li>
                         <a href="<?php echo $base_url; ?>/index.php?action=register" 
                            class="<?php echo $current_action == 'register' ? 'active' : ''; ?>">
@@ -256,29 +239,31 @@ if (isset($_SESSION['user_id'])) {
                 <?php endif; ?>
             </ul>
             
-            <!-- User Actions Icons (Profile, Settings, Logout, Notification) -->
             <?php if (isset($_SESSION['user_id'])): ?>
                 <div class="user-actions">
-                    <!-- Profile Picture -->
-                    <div class="profile-avatar-header">
-                        <?php if ($profile_pic): ?>
-                            <img src="/AzBuy/public/<?php echo $profile_pic; ?>" alt="Profile">
-                        <?php else: ?>
-                            <i class="fas fa-user-circle"></i>
-                        <?php endif; ?>
-                    </div>
+                    <a href="<?php echo $base_url; ?>/index.php?action=settings" class="profile-avatar-header" title="Profile">
+    <?php 
+    $header_avatar_url = '';
+    if (!empty($profile_pic) && $profile_pic != 'default.jpg') {
+        $clean_pic = ltrim($profile_pic, '/');
+        $header_avatar_url = 'https://azbuy.bsit2a.com/' . $clean_pic;
+    }
+    ?>
+    <?php if ($header_avatar_url): ?>
+        <img src="<?php echo $header_avatar_url; ?>" alt="Profile" onerror="this.src='https://placehold.co/35x35/1a1a1a/gold?text=?'">
+    <?php else: ?>
+        <i class="fas fa-user-circle"></i>
+    <?php endif; ?>
+</a>
                     
-                    <!-- Settings Icon -->
                     <a href="<?php echo $base_url; ?>/index.php?action=settings" class="settings-icon <?php echo $current_action == 'settings' ? 'active' : ''; ?>" title="Settings">
                         <i class="fas fa-cog"></i>
                     </a>
                     
-                    <!-- Logout Icon -->
                     <a href="javascript:void(0)" onclick="if(confirm('Are you sure you want to logout?')) window.location.href='<?php echo $base_url; ?>/index.php?action=logout'" class="logout-icon" title="Logout">
                         <i class="fas fa-sign-out-alt"></i>
                     </a>
                     
-                    <!-- Notification Bell -->
                     <div class="notification-bell" onclick="toggleNotifications()">
                         <i class="fas fa-bell"></i>
                         <span id="notificationCount" class="notification-count">0</span>

@@ -1,9 +1,9 @@
 <?php
 class Database {
     private string $host = "localhost";
-    private string $username = "root";
-    private string $password = "";
-    private string $database = "azbuy_db";  // CHANGE THIS to azbuy_db
+    private string $username = "u536627044_Azbuy";
+    private string $password = "Azbuy101101";
+    private string $database = "u536627044_Azbuy";  // CHANGE THIS to azbuy_db
 
     public function connect(): mysqli {
         $conn = new mysqli(
