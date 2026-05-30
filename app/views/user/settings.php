@@ -67,7 +67,6 @@ ob_start();
                 <a href="#" class="active" data-tab="profile"><i class="fas fa-user"></i> Profile Information</a>
                 <a href="#" data-tab="security"><i class="fas fa-shield-alt"></i> Security</a>
                 <a href="#" data-tab="wallet"><i class="fas fa-wallet"></i> Wallet & Payments</a>
-                <a href="index.php?action=2fa-setup"><i class="fas fa-shield-alt"></i> Two-Factor Authentication</a>
             </div>
         </div>
         

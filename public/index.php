@@ -31,7 +31,7 @@ $user_file = $controllers_path . 'UserController.php';
 $auction_file = $controllers_path . 'AuctionController.php';
 $admin_file = $controllers_path . 'AdminController.php';
 $twofactor_file = $controllers_path . 'TwoFactorController.php';
-$userprofile_file = $controllers_path . 'UserProfileController.php';  // ADDED
+$userprofile_file = $controllers_path . 'UserProfileController.php';
 
 // Check if files exist before including
 if (file_exists($auth_file)) {
@@ -155,6 +155,10 @@ switch ($action) {
     
     case 'cancel-bid':
         $auctionController->cancelBid();
+        break;
+    
+    case 'delete-bid-record':
+        $auctionController->deleteBidRecord();
         break;
     
     case 'edit-auction':
@@ -310,8 +314,6 @@ switch ($action) {
             exit;
         }
         break;
-
-     
 
     default:
         require_once BASE_PATH . '/views/pages/home.php';

@@ -200,6 +200,15 @@ ob_start();
                                 <?php elseif ($bid['bid_status'] == 'won_payment' && $payment_time_left <= 0): ?>
                                     <span class="btn-sm disabled" style="background: #6c757d; color: white; cursor: not-allowed;">Payment Expired</span>
                                 <?php endif; ?>
+                                
+                                <?php 
+                                // Add delete button for losers (auction ended and user lost)
+                                if (($bid['bid_status'] == 'lost' && $bid['auction_status'] == 'ended') || 
+                                    ($bid['bid_status'] == 'expired') ||
+                                    ($bid['auction_status'] == 'ended' && $bid['bid_status'] != 'won' && $bid['bid_status'] != 'won_payment')): 
+                                ?>
+                                    <a href="javascript:void(0)" onclick="deleteBidRecord(<?php echo $bid['id']; ?>, '<?php echo htmlspecialchars($bid['title']); ?>')" class="btn-sm btn-warning" style="text-decoration: none; background: #ffc107; color: #000;">Delete</a>
+                                <?php endif; ?>
                             </td>
                          </tr>
                     <?php endforeach; ?>
@@ -310,6 +319,29 @@ function cancelBid(bidId, itemTitle) {
     }
 }
 
+function deleteBidRecord(bidId, itemTitle) {
+    if (confirm('Delete this bid record from "' + itemTitle + '"? This action cannot be undone.')) {
+        fetch('index.php?action=delete-bid-record&id=' + bidId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✓ ' + data.message);
+                location.reload();
+            } else {
+                alert('✗ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+}
+
 function updateCountdowns() {
     const timeCells = document.querySelectorAll('.time-left[data-endtime]');
     
@@ -351,38 +383,62 @@ function updatePaymentCountdowns() {
         const deadlineStr = timer.dataset.deadline;
         if (!deadlineStr) return;
         
-        const deadline = new Date(deadlineStr).getTime();
-        const parentDiv = timer.parentElement;
-        
-        function update() {
-            const now = new Date().getTime();
-            const distance = deadline - now;
+        // FIX: Parse the date as UTC to prevent timezone shifting
+        // Instead of new Date(deadlineStr), parse it manually
+        const parts = deadlineStr.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        if (parts) {
+            // Create date using UTC to prevent timezone conversion
+            const deadline = new Date(Date.UTC(
+                parseInt(parts[1]),           // year
+                parseInt(parts[2]) - 1,       // month (0-indexed)
+                parseInt(parts[3]),           // day
+                parseInt(parts[4]),           // hour
+                parseInt(parts[5]),           // minute
+                parseInt(parts[6])            // second
+            ));
             
-            if (distance < 0) {
-                timer.innerHTML = 'Expired';
-                if (parentDiv) parentDiv.classList.add('expired');
-                setTimeout(() => location.reload(), 5000);
-                return;
+            const parentDiv = timer.parentElement;
+            
+            function update() {
+                const now = new Date();
+                // Get current time in UTC
+                const nowUTC = Date.UTC(
+                    now.getUTCFullYear(),
+                    now.getUTCMonth(),
+                    now.getUTCDate(),
+                    now.getUTCHours(),
+                    now.getUTCMinutes(),
+                    now.getUTCSeconds()
+                );
+                
+                const distance = deadline.getTime() - nowUTC;
+                
+                if (distance < 0) {
+                    timer.innerHTML = 'Expired';
+                    if (parentDiv) parentDiv.classList.add('expired');
+                    setTimeout(() => location.reload(), 5000);
+                    return;
+                }
+                
+                const hours = Math.floor(distance / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                let display = '';
+                if (hours > 0) {
+                    display = hours + 'h ';
+                }
+                display += minutes + 'm ' + seconds + 's';
+                timer.innerHTML = display;
+                
+                if (distance < 3600000) {
+                    if (parentDiv) parentDiv.classList.add('urgent');
+                }
             }
             
-            const hours = Math.floor(distance / (1000 * 60 * 60));
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-            
-            let display = '';
-            if (hours > 0) {
-                display = hours + 'h ';
-            }
-            display += minutes + 'm ' + seconds + 's';
-            timer.innerHTML = display;
-            
-            if (distance < 3600000) {
-                if (parentDiv) parentDiv.classList.add('urgent');
-            }
+            update();
+            setInterval(update, 1000);
         }
-        
-        update();
-        setInterval(update, 1000);
     });
 }
 
@@ -697,6 +753,17 @@ main {
     background: #dc3545;
     color: white;
     text-decoration: none !important;
+}
+
+.btn-sm.btn-warning {
+    background: #ffc107;
+    color: #000;
+    text-decoration: none !important;
+}
+
+.btn-sm.btn-warning:hover {
+    background: #e0a800;
+    transform: translateY(-2px);
 }
 
 .btn-sm.disabled {

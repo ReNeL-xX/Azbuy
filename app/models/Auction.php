@@ -157,56 +157,75 @@ class Auction {
     }
     
     // Get user's bids
-    public function getUserBids($user_id) {
-        $sql = "SELECT b.*, a.id as auction_id, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url, a.payment_deadline
-                FROM bids b 
-                INNER JOIN (
-                    SELECT auction_id, MAX(bid_time) as latest_bid_time
-                    FROM bids
-                    WHERE bidder_id = ?
-                    GROUP BY auction_id
-                ) b2 ON b.auction_id = b2.auction_id AND b.bid_time = b2.latest_bid_time
-                JOIN auctions a ON b.auction_id = a.id
-                WHERE b.bidder_id = ?
-                ORDER BY b.bid_time DESC";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("ii", $user_id, $user_id);
+   public function getUserBids($user_id) {
+    $sql = "SELECT b.*, a.id as auction_id, a.title, a.end_time, a.status as auction_status, a.current_price, a.seller_id, a.image_url, a.payment_deadline, a.winner_id
+            FROM bids b 
+            INNER JOIN (
+                SELECT auction_id, MAX(bid_time) as latest_bid_time
+                FROM bids
+                WHERE bidder_id = ?
+                GROUP BY auction_id
+            ) b2 ON b.auction_id = b2.auction_id AND b.bid_time = b2.latest_bid_time
+            JOIN auctions a ON b.auction_id = a.id
+            WHERE b.bidder_id = ?
+            ORDER BY b.bid_time DESC";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $user_id, $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $bids = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    
+    foreach ($bids as &$bid) {
+        $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
+        $stmt = $this->conn->prepare($highest_sql);
+        $stmt->bind_param("i", $bid['auction_id']);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $bids = $result->fetch_all(MYSQLI_ASSOC);
+        $highest = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         
-        foreach ($bids as &$bid) {
-            $highest_sql = "SELECT MAX(amount) as max_bid FROM bids WHERE auction_id = ?";
-            $stmt = $this->conn->prepare($highest_sql);
-            $stmt->bind_param("i", $bid['auction_id']);
-            $stmt->execute();
-            $highest = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            
-            $highest_bid = $highest['max_bid'] ?? 0;
-            
-            if ($bid['auction_status'] == 'active') {
-                if ($bid['amount'] == $highest_bid) {
-                    $bid['bid_status'] = 'winning';
-                } else {
-                    $bid['bid_status'] = 'outbid';
-                }
-            } elseif ($bid['auction_status'] == 'payment_pending' && $bid['amount'] == $highest_bid) {
-                $bid['bid_status'] = 'won_payment';
-            } elseif ($bid['auction_status'] == 'ended') {
-                if ($bid['amount'] == $highest_bid) {
-                    $bid['bid_status'] = 'won';
-                } else {
-                    $bid['bid_status'] = 'lost';
-                }
-            } else {
-                $bid['bid_status'] = $bid['auction_status'];
-            }
-        }
+        $highest_bid = $highest['max_bid'] ?? 0;
         
-        return $bids;
+        // FIXED LOGIC for bid status
+        if ($bid['auction_status'] == 'active') {
+            // Auction is still active
+            if ($bid['amount'] == $highest_bid) {
+                $bid['bid_status'] = 'winning';
+            } else {
+                $bid['bid_status'] = 'outbid';
+            }
+        } elseif ($bid['auction_status'] == 'payment_pending') {
+            // Auction ended, waiting for payment
+            if ($bid['winner_id'] == $user_id) {
+                // This user is the winner
+                $bid['bid_status'] = 'won_payment';
+            } else {
+                // This user is NOT the winner
+                $bid['bid_status'] = 'lost';
+            }
+        } elseif ($bid['auction_status'] == 'paid') {
+            // Auction ended and paid
+            if ($bid['winner_id'] == $user_id) {
+                // This user is the winner
+                $bid['bid_status'] = 'won';
+            } else {
+                // This user is NOT the winner
+                $bid['bid_status'] = 'lost';
+            }
+        } elseif ($bid['auction_status'] == 'ended') {
+            // Auction ended with no winner or payment expired
+            if ($bid['winner_id'] == $user_id) {
+                $bid['bid_status'] = 'won';
+            } else {
+                $bid['bid_status'] = 'lost';
+            }
+        } else {
+            $bid['bid_status'] = $bid['auction_status'];
+        }
     }
+    
+    return $bids;
+}
     
     // Delete auction (owner can delete ended auctions)
     public function deleteAuction($auction_id, $user_id): array {
@@ -403,65 +422,84 @@ class Auction {
     }
     
     // Check and update ended auctions
-    public function checkEndedAuctions() {
-        $sql = "SELECT id, end_time FROM auctions WHERE status = 'active' AND end_time <= NOW()";
-        $result = $this->conn->query($sql);
-        $ended_auctions = $result->fetch_all(MYSQLI_ASSOC);
+  public function checkEndedAuctions() {
+    // Use UTC for database storage
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $now_str = $now->format('Y-m-d H:i:s');
+    
+    $sql = "SELECT id, end_time FROM auctions WHERE status = 'active' AND end_time <= ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("s", $now_str);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $ended_auctions = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    
+    foreach ($ended_auctions as $auction) {
+        $highest_bid_sql = "SELECT bidder_id, amount FROM bids WHERE auction_id = ? ORDER BY amount DESC LIMIT 1";
+        $stmt = $this->conn->prepare($highest_bid_sql);
+        $stmt->bind_param("i", $auction['id']);
+        $stmt->execute();
+        $highest_bid = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         
-        foreach ($ended_auctions as $auction) {
-            $highest_bid_sql = "SELECT bidder_id, amount FROM bids WHERE auction_id = ? ORDER BY amount DESC LIMIT 1";
-            $stmt = $this->conn->prepare($highest_bid_sql);
-            $stmt->bind_param("i", $auction['id']);
+        if ($highest_bid) {
+            // Calculate payment deadline using UTC
+            $end_time = new DateTime($auction['end_time'], new DateTimeZone('UTC'));
+            $payment_deadline_obj = clone $end_time;
+            $payment_deadline_obj->modify('+24 hours');
+            $payment_deadline = $payment_deadline_obj->format('Y-m-d H:i:s');
+            
+            $update_sql = "UPDATE auctions SET 
+                           status = 'payment_pending', 
+                           winner_id = ?, 
+                           winning_bid = ?, 
+                           payment_deadline = ?,
+                           payment_status = 'pending'
+                           WHERE id = ?";
+            $stmt = $this->conn->prepare($update_sql);
+            $stmt->bind_param("idsi", $highest_bid['bidder_id'], $highest_bid['amount'], $payment_deadline, $auction['id']);
             $stmt->execute();
-            $highest_bid = $stmt->get_result()->fetch_assoc();
             $stmt->close();
             
-            if ($highest_bid) {
-                // 24 hours from the auction END TIME
-                $payment_deadline = date('Y-m-d H:i:s', strtotime($auction['end_time'] . ' +24 hours'));
-                
-                $update_sql = "UPDATE auctions SET 
-                               status = 'payment_pending', 
-                               winner_id = ?, 
-                               winning_bid = ?, 
-                               payment_deadline = ?,
-                               payment_status = 'pending'
-                               WHERE id = ?";
-                $stmt = $this->conn->prepare($update_sql);
-                $stmt->bind_param("idsi", $highest_bid['bidder_id'], $highest_bid['amount'], $payment_deadline, $auction['id']);
-                $stmt->execute();
-                $stmt->close();
-                
-                $this->addNotification(
-                    $highest_bid['bidder_id'],
-                    'auction_won',
-                    '🏆 You won the auction!',
-                    "Congratulations! You won the auction. You have 24 hours to complete your payment."
-                );
-            } else {
-                $update_sql = "UPDATE auctions SET status = 'ended' WHERE id = ?";
-                $stmt = $this->conn->prepare($update_sql);
-                $stmt->bind_param("i", $auction['id']);
-                $stmt->execute();
-                $stmt->close();
-            }
+            $this->addNotification(
+                $highest_bid['bidder_id'],
+                'auction_won',
+                '🏆 You won the auction!',
+                "Congratulations! You won the auction. You have 24 hours to complete your payment."
+            );
+        } else {
+            $update_sql = "UPDATE auctions SET status = 'ended', winner_id = NULL WHERE id = ?";
+            $stmt = $this->conn->prepare($update_sql);
+            $stmt->bind_param("i", $auction['id']);
+            $stmt->execute();
+            $stmt->close();
         }
     }
+}
     
-   // Check for expired payment deadlines - just end the auction (no second chance)
 public function checkExpiredPayments() {
+    // Use UTC for consistency
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $now_str = $now->format('Y-m-d H:i:s');
+    
     $sql = "SELECT id, winner_id, winning_bid, title FROM auctions 
             WHERE status = 'payment_pending' 
-            AND payment_deadline <= NOW() 
+            AND payment_deadline <= ?
             AND payment_status = 'pending'";
-    $result = $this->conn->query($sql);
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("s", $now_str);
+    $stmt->execute();
+    $result = $stmt->get_result();
     $expired_auctions = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
     
     foreach ($expired_auctions as $auction) {
-        // Just mark the auction as ended - no second chance for other bidders
+        // Mark auction as ended with no winner (since payment expired)
         $update_sql = "UPDATE auctions SET 
                        status = 'ended', 
-                       payment_status = 'expired'
+                       payment_status = 'expired',
+                       winner_id = NULL
                        WHERE id = ?";
         $stmt = $this->conn->prepare($update_sql);
         $stmt->bind_param("i", $auction['id']);
